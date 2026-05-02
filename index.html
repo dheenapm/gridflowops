@@ -1,0 +1,1589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GridFlow — Utility Release Management</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #09100f;
+    --bg2: #0e1a18;
+    --bg3: #132420;
+    --panel: #0d1e1b;
+    --border: #1e3530;
+    --border2: #254740;
+    --accent: #00e5b0;
+    --accent2: #00b88c;
+    --accent-dim: rgba(0,229,176,0.12);
+    --accent-glow: rgba(0,229,176,0.25);
+    --warn: #f59e0b;
+    --warn-dim: rgba(245,158,11,0.15);
+    --danger: #ef4444;
+    --danger-dim: rgba(239,68,68,0.15);
+    --info: #38bdf8;
+    --info-dim: rgba(56,189,248,0.12);
+    --success: #22c55e;
+    --text-primary: #e8f5f2;
+    --text-secondary: #7eada5;
+    --text-muted: #4a7a72;
+    --font-display: 'Rajdhani', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+    --font-body: 'IBM Plex Sans', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,176,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,176,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ===== LAYOUT ===== */
+  .shell { display: flex; height: 100vh; position: relative; z-index: 1; }
+
+  /* ===== SIDEBAR ===== */
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .logo-area {
+    padding: 20px 18px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo-mark {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    position: relative;
+  }
+
+  .logo-icon svg { width: 100%; height: 100%; }
+
+  .logo-name {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+
+  .logo-sub {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding-left: 42px;
+  }
+
+  .nav { padding: 16px 0; flex: 1; overflow-y: auto; }
+
+  .nav-section {
+    margin-bottom: 20px;
+  }
+
+  .nav-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    padding: 0 18px 8px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 18px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-left: 2px solid transparent;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .nav-item:hover { background: var(--accent-dim); color: var(--text-primary); }
+  .nav-item.active {
+    background: var(--accent-dim);
+    border-left-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .nav-item .icon { font-size: 15px; opacity: 0.8; }
+
+  .nav-badge {
+    margin-left: auto;
+    background: var(--danger);
+    color: white;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+
+  .nav-badge.warn { background: var(--warn); color: #1a0; }
+  .nav-badge.ok { background: var(--success); }
+
+  /* Domain indicators */
+  .domain-dots {
+    padding: 12px 18px;
+    border-top: 1px solid var(--border);
+  }
+
+  .domain-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .domain-dot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .dot.gen { background: #f59e0b; box-shadow: 0 0 6px #f59e0b80; }
+  .dot.tx { background: #38bdf8; box-shadow: 0 0 6px #38bdf880; }
+  .dot.dx { background: #a78bfa; box-shadow: 0 0 6px #a78bfa80; }
+  .dot.billing { background: #fb7185; box-shadow: 0 0 6px #fb718580; }
+  .dot.cx { background: #00e5b0; box-shadow: 0 0 6px #00e5b080; }
+
+  /* ===== MAIN ===== */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ===== TOPBAR ===== */
+  .topbar {
+    height: 52px;
+    flex-shrink: 0;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 16px;
+  }
+
+  .topbar-title {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--text-primary);
+  }
+
+  .topbar-env {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 3px 10px;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 3px;
+    letter-spacing: 1px;
+  }
+
+  .topbar-sep { flex: 1; }
+
+  .topbar-clock {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+  }
+
+  .topbar-btn {
+    background: var(--accent);
+    color: #041a15;
+    border: none;
+    padding: 7px 14px;
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    border-radius: 3px;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+
+  .topbar-btn:hover { background: var(--accent2); transform: translateY(-1px); }
+
+  /* ===== CONTENT ===== */
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ===== STAT CARDS ===== */
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+  }
+
+  .stat-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-top: 2px solid var(--border);
+    padding: 14px 16px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .stat-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 1px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .stat-card:hover::after { opacity: 1; }
+
+  .stat-card.gen { border-top-color: #f59e0b; }
+  .stat-card.tx { border-top-color: #38bdf8; }
+  .stat-card.dx { border-top-color: #a78bfa; }
+  .stat-card.billing { border-top-color: #fb7185; }
+  .stat-card.cx { border-top-color: #00e5b0; }
+
+  .stat-domain {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+
+  .stat-num {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .stat-card.gen .stat-num { color: #f59e0b; }
+  .stat-card.tx .stat-num { color: #38bdf8; }
+  .stat-card.dx .stat-num { color: #a78bfa; }
+  .stat-card.billing .stat-num { color: #fb7185; }
+  .stat-card.cx .stat-num { color: #00e5b0; }
+
+  .stat-label { font-size: 11px; color: var(--text-secondary); }
+
+  .stat-sub {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+  }
+
+  .stat-up { color: var(--success); }
+  .stat-warn { color: var(--warn); }
+  .stat-err { color: var(--danger); }
+
+  /* ===== PIPELINE VIEW ===== */
+  .pipeline-section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg3);
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .section-meta {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .section-sep { flex: 1; }
+
+  .filter-pill {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 4px 10px;
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .filter-pill:hover, .filter-pill.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  /* Release Pipeline Flow */
+  .pipeline-flow {
+    padding: 20px;
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+  }
+
+  .pipeline-stage {
+    flex: 1;
+    min-width: 150px;
+    position: relative;
+  }
+
+  .pipeline-stage + .pipeline-stage::before {
+    content: '▶';
+    position: absolute;
+    left: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--border2);
+    font-size: 12px;
+    z-index: 2;
+  }
+
+  .stage-header {
+    text-align: center;
+    padding: 8px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stage-name {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .stage-count {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-secondary);
+  }
+
+  .stage-card {
+    margin: 0 8px 8px;
+    padding: 10px 12px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-left: 3px solid transparent;
+  }
+
+  .stage-card:hover {
+    border-color: var(--accent);
+    border-left-color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .stage-card.gen-c { border-left-color: #f59e0b; }
+  .stage-card.tx-c { border-left-color: #38bdf8; }
+  .stage-card.dx-c { border-left-color: #a78bfa; }
+  .stage-card.billing-c { border-left-color: #fb7185; }
+  .stage-card.cx-c { border-left-color: #00e5b0; }
+
+  .card-app {
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--text-primary);
+    margin-bottom: 3px;
+  }
+
+  .card-ver {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .card-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  .status-dot.pass { background: var(--success); }
+  .status-dot.fail { background: var(--danger); }
+  .status-dot.run { background: var(--warn); animation: pulse 1s infinite; }
+  .status-dot.wait { background: var(--text-muted); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .card-status-text {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--text-muted);
+  }
+
+  /* ===== RELEASE TABLE ===== */
+  .release-section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .table-wrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  thead th {
+    background: var(--bg3);
+    padding: 10px 16px;
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+    cursor: pointer;
+  }
+
+  tbody tr:hover { background: var(--accent-dim); }
+  tbody tr:last-child { border-bottom: none; }
+
+  tbody td {
+    padding: 10px 16px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  .td-app { color: var(--text-primary); font-weight: 500; }
+  .td-ver { font-family: var(--font-mono); font-size: 11px; color: var(--accent); }
+  .td-domain { display: inline-flex; align-items: center; gap: 5px; }
+
+  .domain-tag {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    padding: 2px 8px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .domain-tag.gen { background: rgba(245,158,11,0.15); color: #f59e0b; }
+  .domain-tag.tx { background: rgba(56,189,248,0.15); color: #38bdf8; }
+  .domain-tag.dx { background: rgba(167,139,250,0.15); color: #a78bfa; }
+  .domain-tag.billing { background: rgba(251,113,133,0.15); color: #fb7185; }
+  .domain-tag.cx { background: rgba(0,229,176,0.15); color: #00e5b0; }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 2px;
+  }
+
+  .status-badge.scheduled { background: var(--info-dim); color: var(--info); }
+  .status-badge.deploying { background: var(--warn-dim); color: var(--warn); }
+  .status-badge.deployed { background: rgba(34,197,94,0.15); color: var(--success); }
+  .status-badge.failed { background: var(--danger-dim); color: var(--danger); }
+  .status-badge.review { background: var(--accent-dim); color: var(--accent); }
+  .status-badge.rollback { background: var(--danger-dim); color: var(--danger); }
+
+  /* Progress bar */
+  .progress-bar {
+    width: 80px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--accent);
+    transition: width 1s ease;
+  }
+
+  /* ===== INTEGRATION MAP ===== */
+  .integrations-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .integration-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .int-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg3);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .int-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  .int-title {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 1px;
+  }
+
+  .int-count {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .int-body { padding: 12px; }
+
+  .int-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 8px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+
+  .int-row:hover { background: var(--accent-dim); }
+
+  .int-app-name { flex: 1; font-size: 12px; color: var(--text-primary); }
+  .int-version { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
+  .int-health {
+    width: 50px;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .int-health-fill { height: 100%; border-radius: 2px; }
+
+  /* ===== ACTIVITY FEED ===== */
+  .bottom-row {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 20px;
+  }
+
+  .activity-feed {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .feed-body {
+    padding: 8px 0;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+
+  .feed-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+  }
+
+  .feed-item:hover { background: var(--accent-dim); }
+  .feed-item:last-child { border-bottom: none; }
+
+  .feed-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-top: 4px;
+    flex-shrink: 0;
+  }
+
+  .feed-content { flex: 1; }
+  .feed-text { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+  .feed-text strong { color: var(--text-primary); }
+  .feed-time {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--text-muted);
+    margin-top: 3px;
+  }
+
+  /* ===== APPROVAL PANEL ===== */
+  .approval-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .approval-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .approval-item:last-child { border-bottom: none; }
+
+  .appr-app { font-weight: 500; font-size: 12px; color: var(--text-primary); }
+  .appr-meta { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin: 3px 0 8px; }
+
+  .appr-actions { display: flex; gap: 6px; }
+
+  .btn-approve {
+    flex: 1;
+    background: rgba(34,197,94,0.15);
+    border: 1px solid #22c55e50;
+    color: var(--success);
+    padding: 5px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+  }
+
+  .btn-approve:hover { background: rgba(34,197,94,0.3); }
+
+  .btn-reject {
+    flex: 1;
+    background: var(--danger-dim);
+    border: 1px solid rgba(239,68,68,0.3);
+    color: var(--danger);
+    padding: 5px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+  }
+
+  .btn-reject:hover { background: rgba(239,68,68,0.3); }
+
+  /* ===== COMPLIANCE BAR ===== */
+  .compliance-bar {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .comp-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .comp-items {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    flex: 1;
+  }
+
+  .comp-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+  }
+
+  .comp-name { font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); }
+
+  .comp-check {
+    font-size: 11px;
+  }
+
+  .comp-check.ok { color: var(--success); }
+  .comp-check.warn { color: var(--warn); }
+  .comp-check.fail { color: var(--danger); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+  /* Glow animation on accent elements */
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 0 4px var(--accent-glow); }
+    50% { box-shadow: 0 0 12px var(--accent-glow); }
+  }
+
+  .nav-item.active { animation: glow 3s infinite; }
+
+  /* Loading bar for deploying */
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(200%); }
+  }
+
+  .progress-fill.active {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .progress-fill.active::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Power line decorative element */
+  .power-line {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), var(--info), var(--warn), transparent);
+    opacity: 0.4;
+    margin: 0;
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo-area">
+      <div class="logo-mark">
+        <div class="logo-icon">
+          <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <polygon points="16,2 28,10 28,22 16,30 4,22 4,10" fill="none" stroke="#00e5b0" stroke-width="1.5"/>
+            <polygon points="16,8 22,12 22,20 16,24 10,20 10,12" fill="rgba(0,229,176,0.12)" stroke="#00e5b0" stroke-width="1"/>
+            <line x1="16" y1="2" x2="16" y2="8" stroke="#00e5b0" stroke-width="1.5"/>
+            <line x1="28" y1="10" x2="22" y2="12" stroke="#00e5b0" stroke-width="1.5"/>
+            <line x1="28" y1="22" x2="22" y2="20" stroke="#00e5b0" stroke-width="1.5"/>
+            <line x1="16" y1="30" x2="16" y2="24" stroke="#00e5b0" stroke-width="1.5"/>
+            <line x1="4" y1="22" x2="10" y2="20" stroke="#00e5b0" stroke-width="1.5"/>
+            <line x1="4" y1="10" x2="10" y2="12" stroke="#00e5b0" stroke-width="1.5"/>
+            <circle cx="16" cy="16" r="3" fill="#00e5b0"/>
+          </svg>
+        </div>
+        <span class="logo-name">GridFlow</span>
+      </div>
+      <div class="logo-sub">Release Ops Platform</div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-section">
+        <div class="nav-label">Operations</div>
+        <div class="nav-item active">
+          <span class="icon">⚡</span> Dashboard
+        </div>
+        <div class="nav-item">
+          <span class="icon">🚀</span> Releases
+          <span class="nav-badge">3</span>
+        </div>
+        <div class="nav-item">
+          <span class="icon">🔁</span> Pipelines
+        </div>
+        <div class="nav-item">
+          <span class="icon">📋</span> Approvals
+          <span class="nav-badge warn">5</span>
+        </div>
+        <div class="nav-item">
+          <span class="icon">↩️</span> Rollbacks
+          <span class="nav-badge">1</span>
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-label">Domains</div>
+        <div class="nav-item">
+          <span class="icon">🔥</span> Generation
+        </div>
+        <div class="nav-item">
+          <span class="icon">🔌</span> Transmission
+        </div>
+        <div class="nav-item">
+          <span class="icon">🏘️</span> Distribution
+        </div>
+        <div class="nav-item">
+          <span class="icon">💳</span> Billing
+        </div>
+        <div class="nav-item">
+          <span class="icon">🎧</span> Customer Care
+        </div>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-label">Governance</div>
+        <div class="nav-item">
+          <span class="icon">🛡️</span> Compliance
+        </div>
+        <div class="nav-item">
+          <span class="icon">📊</span> Analytics
+        </div>
+        <div class="nav-item">
+          <span class="icon">🔗</span> Integrations
+        </div>
+        <div class="nav-item">
+          <span class="icon">⚙️</span> Settings
+        </div>
+      </div>
+    </nav>
+
+    <div class="domain-dots">
+      <div class="domain-label">Domain Health</div>
+      <div class="domain-dot"><div class="dot gen"></div> Generation &nbsp;<span style="margin-left:auto;font-family:var(--font-mono);font-size:10px;color:#f59e0b">98.2%</span></div>
+      <div class="domain-dot"><div class="dot tx"></div> Transmission &nbsp;<span style="margin-left:auto;font-family:var(--font-mono);font-size:10px;color:#38bdf8">99.1%</span></div>
+      <div class="domain-dot"><div class="dot dx"></div> Distribution &nbsp;<span style="margin-left:auto;font-family:var(--font-mono);font-size:10px;color:#a78bfa">97.4%</span></div>
+      <div class="domain-dot"><div class="dot billing"></div> Billing &nbsp;<span style="margin-left:auto;font-family:var(--font-mono);font-size:10px;color:#fb7185">96.8%</span></div>
+      <div class="domain-dot"><div class="dot cx"></div> Customer &nbsp;<span style="margin-left:auto;font-family:var(--font-mono);font-size:10px;color:#00e5b0">99.5%</span></div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <span class="topbar-title">Release Dashboard</span>
+      <span class="topbar-env">PROD — Q2 2026</span>
+      <div class="topbar-sep"></div>
+      <span class="topbar-clock" id="clock">--:--:-- UTC</span>
+      <button class="topbar-btn">+ New Release</button>
+    </div>
+
+    <div class="power-line"></div>
+
+    <div class="content">
+
+      <!-- STAT CARDS -->
+      <div class="stat-row">
+        <div class="stat-card gen">
+          <div class="stat-domain">Generation</div>
+          <div class="stat-num">14</div>
+          <div class="stat-label">Apps in Portfolio</div>
+          <div class="stat-sub"><span class="stat-warn">▲ 2</span> releases pending</div>
+        </div>
+        <div class="stat-card tx">
+          <div class="stat-domain">Transmission</div>
+          <div class="stat-num">9</div>
+          <div class="stat-label">Apps in Portfolio</div>
+          <div class="stat-sub"><span class="stat-up">✓ 1</span> deployed today</div>
+        </div>
+        <div class="stat-card dx">
+          <div class="stat-domain">Distribution</div>
+          <div class="stat-num">22</div>
+          <div class="stat-label">Apps in Portfolio</div>
+          <div class="stat-sub"><span class="stat-err">✗ 1</span> failed deploy</div>
+        </div>
+        <div class="stat-card billing">
+          <div class="stat-domain">Billing</div>
+          <div class="stat-num">11</div>
+          <div class="stat-label">Apps in Portfolio</div>
+          <div class="stat-sub"><span class="stat-up">→ 3</span> in staging</div>
+        </div>
+        <div class="stat-card cx">
+          <div class="stat-domain">Customer Care</div>
+          <div class="stat-num">16</div>
+          <div class="stat-label">Apps in Portfolio</div>
+          <div class="stat-sub"><span class="stat-up">✓ 2</span> deployed today</div>
+        </div>
+      </div>
+
+      <!-- COMPLIANCE BAR -->
+      <div class="compliance-bar">
+        <div class="comp-label">Compliance</div>
+        <div class="comp-items">
+          <div class="comp-item"><span class="comp-check ok">✓</span><span class="comp-name">NERC CIP</span></div>
+          <div class="comp-item"><span class="comp-check ok">✓</span><span class="comp-name">SOX</span></div>
+          <div class="comp-item"><span class="comp-check ok">✓</span><span class="comp-name">ISO 55000</span></div>
+          <div class="comp-item"><span class="comp-check warn">⚠</span><span class="comp-name">IEC 62351</span></div>
+          <div class="comp-item"><span class="comp-check ok">✓</span><span class="comp-name">FERC Order 887</span></div>
+          <div class="comp-item"><span class="comp-check ok">✓</span><span class="comp-name">GDPR / PII</span></div>
+          <div class="comp-item"><span class="comp-check fail">✗</span><span class="comp-name">Change Freeze</span></div>
+        </div>
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--warn);">⚠ Freeze window: Sat 00:00–06:00 UTC</div>
+      </div>
+
+      <!-- PIPELINE FLOW -->
+      <div class="pipeline-section">
+        <div class="section-header">
+          <span class="section-title">Release Pipeline</span>
+          <span class="section-meta">Active sprints · Q2.W3</span>
+          <div class="section-sep"></div>
+          <span class="filter-pill active">All</span>
+          <span class="filter-pill">Critical</span>
+          <span class="filter-pill">OT/IT</span>
+        </div>
+        <div class="pipeline-flow">
+          <!-- BACKLOG -->
+          <div class="pipeline-stage">
+            <div class="stage-header">
+              <div class="stage-name">Backlog</div>
+              <div class="stage-count">12</div>
+            </div>
+            <div class="stage-card gen-c">
+              <div class="card-app">EMS Core</div>
+              <div class="card-ver">v4.2.1 → v4.3.0</div>
+              <div class="card-meta"><div class="status-dot wait"></div><span class="card-status-text">SCOPING</span></div>
+            </div>
+            <div class="stage-card billing-c">
+              <div class="card-app">MDM Portal</div>
+              <div class="card-ver">v2.7.0 → v2.8.0</div>
+              <div class="card-meta"><div class="status-dot wait"></div><span class="card-status-text">ESTIMATED</span></div>
+            </div>
+            <div class="stage-card cx-c">
+              <div class="card-app">CIS Self-Serve</div>
+              <div class="card-ver">v5.1.0 → v5.2.0</div>
+              <div class="card-meta"><div class="status-dot wait"></div><span class="card-status-text">QUEUED</span></div>
+            </div>
+          </div>
+
+          <!-- DEV -->
+          <div class="pipeline-stage">
+            <div class="stage-header">
+              <div class="stage-name">Dev / Build</div>
+              <div class="stage-count">7</div>
+            </div>
+            <div class="stage-card tx-c">
+              <div class="card-app">SCADA Gateway</div>
+              <div class="card-ver">v3.1.2 → v3.2.0</div>
+              <div class="card-meta"><div class="status-dot run"></div><span class="card-status-text">BUILDING</span></div>
+            </div>
+            <div class="stage-card dx-c">
+              <div class="card-app">OMS Field App</div>
+              <div class="card-ver">v6.0.1 → v6.1.0</div>
+              <div class="card-meta"><div class="status-dot run"></div><span class="card-status-text">CI RUNNING</span></div>
+            </div>
+            <div class="stage-card gen-c">
+              <div class="card-app">Plant PI Historian</div>
+              <div class="card-ver">v1.9.0 → v2.0.0</div>
+              <div class="card-meta"><div class="status-dot pass"></div><span class="card-status-text">BUILD PASS</span></div>
+            </div>
+          </div>
+
+          <!-- QA / TEST -->
+          <div class="pipeline-stage">
+            <div class="stage-header">
+              <div class="stage-name">QA / Test</div>
+              <div class="stage-count">5</div>
+            </div>
+            <div class="stage-card billing-c">
+              <div class="card-app">Billing Engine</div>
+              <div class="card-ver">v8.3.0 → v8.4.0</div>
+              <div class="card-meta"><div class="status-dot run"></div><span class="card-status-text">REGRESSION</span></div>
+            </div>
+            <div class="stage-card cx-c">
+              <div class="card-app">IVR / Telephony</div>
+              <div class="card-ver">v2.4.1 → v2.5.0</div>
+              <div class="card-meta"><div class="status-dot pass"></div><span class="card-status-text">UAT PASS</span></div>
+            </div>
+            <div class="stage-card dx-c">
+              <div class="card-app">AMI Head-End</div>
+              <div class="card-ver">v5.2.3 → v5.3.0</div>
+              <div class="card-meta"><div class="status-dot fail"></div><span class="card-status-text">TEST FAIL</span></div>
+            </div>
+          </div>
+
+          <!-- STAGING -->
+          <div class="pipeline-stage">
+            <div class="stage-header">
+              <div class="stage-name">Staging</div>
+              <div class="stage-count">4</div>
+            </div>
+            <div class="stage-card gen-c">
+              <div class="card-app">DCS Interface</div>
+              <div class="card-ver">v3.0.0 → v3.0.1</div>
+              <div class="card-meta"><div class="status-dot pass"></div><span class="card-status-text">READY</span></div>
+            </div>
+            <div class="stage-card tx-c">
+              <div class="card-app">EMS Alarms</div>
+              <div class="card-ver">v2.2.0 → v2.3.0</div>
+              <div class="card-meta"><div class="status-dot pass"></div><span class="card-status-text">APPROVED</span></div>
+            </div>
+          </div>
+
+          <!-- PROD DEPLOY -->
+          <div class="pipeline-stage">
+            <div class="stage-header">
+              <div class="stage-name">Production</div>
+              <div class="stage-count">3</div>
+            </div>
+            <div class="stage-card cx-c">
+              <div class="card-app">CRM Integration</div>
+              <div class="card-ver">v4.1.0 → v4.2.0</div>
+              <div class="card-meta"><div class="status-dot run"></div><span class="card-status-text">DEPLOYING 72%</span></div>
+            </div>
+            <div class="stage-card billing-c">
+              <div class="card-app">Rate Engine API</div>
+              <div class="card-ver">v1.5.2 → v1.6.0</div>
+              <div class="card-meta"><div class="status-dot pass"></div><span class="card-status-text">LIVE</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RELEASE TABLE -->
+      <div class="release-section">
+        <div class="section-header">
+          <span class="section-title">All Active Releases</span>
+          <span class="section-meta">72 total · 18 active</span>
+          <div class="section-sep"></div>
+          <span class="filter-pill active">This Week</span>
+          <span class="filter-pill">Month</span>
+          <span class="filter-pill">Quarter</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Application</th>
+                <th>Domain</th>
+                <th>Type</th>
+                <th>Version</th>
+                <th>Environment</th>
+                <th>Owner</th>
+                <th>Status</th>
+                <th>Progress</th>
+                <th>Compliance</th>
+                <th>Scheduled</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="td-app">EMS Core v4.3.0</td>
+                <td><span class="domain-tag gen">GEN</span></td>
+                <td style="color:var(--text-muted);font-family:var(--font-mono);font-size:10px;">OT/SCADA</td>
+                <td class="td-ver">v4.2.1 → v4.3.0</td>
+                <td style="font-family:var(--font-mono);font-size:10px;">PROD-WEST</td>
+                <td>R. Patel</td>
+                <td><span class="status-badge review">● REVIEW</span></td>
+                <td><div class="progress-bar"><div class="progress-fill" style="width:35%"></div></div></td>
+                <td style="color:var(--success);font-family:var(--font-mono);font-size:10px;">NERC ✓</td>
+                <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">Apr 27</td>
+              </tr>
+              <tr>
+                <td class="td-app">SCADA Gateway</td>
+                <td><span class="domain-tag tx">TX</span></td>
+                <td style="color:var(--text-muted);font-family:var(--font-mono);font-size:10px;">OT</td>
+                <td class="td-ver">v3.1.2 → v3.2.0</td>
+                <td style="font-family:var(--font-mono);font-size:10px;">PROD-CTRL</td>
+                <td>M. Singh</td>
+                <td><span class="status-badge deploying">⏳ DEPLOYING</span></td>
+                <td><div class="progress-bar"><div class="progress-fill active" style="width:72%"></div></div></td>
+                <td style="color:var(--warn);font-family:var(--font-mono);font-size:10px;">IEC ⚠</td>
+                <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">TODAY</td>
+              </tr>
+              <tr>
+                <td class="td-app">AMI Head-End Sys</td>
+                <td><span class="domain-tag dx">DIST</span></td>
+                <td style="color:var(--text-muted);font-family:var(--font-mono);font-size:10px;">IT/OT</td>
+                <td class="td-ver">v5.2.3 → v5.3.0</td>
+                <td style="font-family:var(--font-mono);font-size:10px;">STAGING</td>
+                <td>K. Wu</td>
+                <td><span class="status-badge failed">✗ FAILED</span></td>
+                <td><div class="progress-bar"><div class="progress-fill" style="width:60%;background:var(--danger)"></div></div></td>
+                <td style="color:var(--danger);font-family:var(--font-mono);font-size:10px;">BLOCKED</td>
+                <td style="font-family:var(--font-mono);font-size:10px;color:var(--danger)">HOLD</td>
+              </tr>
+              <tr>
+                <td class="td-app">Billing Engine</td>
+                <td><span class="domain-tag billing">BILL</span></td>
+                <td style="color:var(--text-muted);font-family:var(--font-mono);font-size:10px;">IT</td>
+                <td class="td-ver">v8.3.0 → v8.4.0</td>
+                <td style="font-family:var(--font-mono);font-size:10px;">PROD-EAST</td>
+                <td>A. Torres</td>
+                <td><span class="status-badge scheduled">📅 SCHEDULED</span></td>
+                <td><div class="progress-bar"><div class="progress-fill" style="width:85%"></div></div></td>
+                <td style="color:var(--success);font-family:var(--font-mono);font-size:10px;">SOX ✓</td>
+                <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">Apr 25</td>
+              </tr>
+              <tr>
+                <td class="td-app">CRM Integration</td>
+                <td><span class="domain-tag cx">CX</span></td>
+                <td style="color:var(--text-muted);font-family:var(--font-mono);font-size:10px;">IT/SaaS</td>
+                <td class="td-ver">v4.1.0 → v4.2.0</td>
+                <td style="font-family:var(--font-mono);font-size:10px;">PROD</td>
+                <td>J. Chen</td>
+                <td><span class="status-badge deploying">⏳ DEPLOYING</span></td>
+                <td><div class="progress-bar"><div class="progress-fill active" style="width:72%"></div></div></td>
+                <td style="color:var(--success);font-family:var(--font-mono);font-size:10px;">GDPR ✓</td>
+                <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">NOW</td>
+              </tr>
+              <tr>
+                <td class="td-app">Rate Engine API</td>
+                <td><span class="domain-tag billing">BILL</span></td>
+                <td style="color:var(--text-muted);font-family:var(--font-mono);font-size:10px;">IT</td>
+                <td class="td-ver">v1.5.2 → v1.6.0</td>
+                <td style="font-family:var(--font-mono);font-size:10px;">PROD</td>
+                <td>S. Lee</td>
+                <td><span class="status-badge deployed">✓ LIVE</span></td>
+                <td><div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--success)"></div></div></td>
+                <td style="color:var(--success);font-family:var(--font-mono);font-size:10px;">FERC ✓</td>
+                <td style="font-family:var(--font-mono);font-size:10px;color:var(--success)">DONE</td>
+              </tr>
+              <tr>
+                <td class="td-app">DMS Field Crew App</td>
+                <td><span class="domain-tag dx">DIST</span></td>
+                <td style="color:var(--text-muted);font-family:var(--font-mono);font-size:10px;">IT/Mobile</td>
+                <td class="td-ver">v6.0.1 → v6.1.0</td>
+                <td style="font-family:var(--font-mono);font-size:10px;">PROD-MOBILE</td>
+                <td>D. Brown</td>
+                <td><span class="status-badge review">● REVIEW</span></td>
+                <td><div class="progress-bar"><div class="progress-fill" style="width:50%"></div></div></td>
+                <td style="color:var(--success);font-family:var(--font-mono);font-size:10px;">ISO ✓</td>
+                <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">Apr 30</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- INTEGRATIONS + BOTTOM -->
+      <div class="integrations-grid">
+        <!-- Generation -->
+        <div class="integration-card">
+          <div class="int-header">
+            <div class="int-icon" style="background:rgba(245,158,11,0.15)">🔥</div>
+            <div class="int-title" style="color:#f59e0b">Generation Apps</div>
+            <div class="int-count">14 apps · 6 integrations</div>
+          </div>
+          <div class="int-body">
+            <div class="int-row">
+              <div class="status-dot pass"></div>
+              <div class="int-app-name">EMS / SCADA Core</div>
+              <div class="int-version">v4.2.1</div>
+              <div class="int-health"><div class="int-health-fill" style="width:98%;background:#f59e0b"></div></div>
+            </div>
+            <div class="int-row">
+              <div class="status-dot pass"></div>
+              <div class="int-app-name">PI Historian (OSIsoft)</div>
+              <div class="int-version">v2.0.0</div>
+              <div class="int-health"><div class="int-health-fill" style="width:100%;background:#22c55e"></div></div>
+            </div>
+            <div class="int-row">
+              <div class="status-dot run"></div>
+              <div class="int-app-name">DCS Interface Layer</div>
+              <div class="int-version">v3.0.1</div>
+              <div class="int-health"><div class="int-health-fill" style="width:82%;background:#f59e0b"></div></div>
+            </div>
+            <div class="int-row">
+              <div class="status-dot pass"></div>
+              <div class="int-app-name">Plant CMMS (SAP PM)</div>
+              <div class="int-version">v7.4.2</div>
+              <div class="int-health"><div class="int-health-fill" style="width:95%;background:#22c55e"></div></div>
+            </div>
+            <div class="int-row">
+              <div class="status-dot pass"></div>
+              <div class="int-app-name">Environmental Reporting</div>
+              <div class="int-version">v1.3.0</div>
+              <div class="int-health"><div class="int-health-fill" style="width:91%;background:#22c55e"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Transmission -->
+        <div class="integration-card">
+          <div class="int-header">
+            <div class="int-icon" style="background:rgba(56,189,248,0.15)">🔌</div>
+            <div class="int-title" style="color:#38bdf8">Transmission Apps</div>
+            <div class="int-count">9 apps · 5 integrations</div>
+          </div>
+          <div class="int-body">
+            <div class="int-row">
+              <div class="status-dot run"></div>
+              <div class="int-app-name">SCADA / EMS Platform</div>
+              <div class="int-version">v3.2.0</div>
+              <div class="int-health"><div class="int-health-fill" style="width:99%;background:#38bdf8"></div></div>
+            </div>
+            <div class="int-row">
+              <div class="status-dot pass"></div>
+              <div class="int-app-name">Network Model Mgr</div>
+              <div class="int-version">v5.1.0</div>
+              <div class="int-health"><div class="int-health-fill" style="width:97%;background:#22c55e"></div></div>
+            </div>
+            <div class="int-row">
+              <div class="status-dot pass"></div>
+              <div class="int-app-name">WAMS / PMU Analytics</div>
+              <div class="int-version">v2.2.1</div>
+              <div class="int-health"><div class="int-health-fill" style="width:100%;background:#22c55e"></div></div>
+            </div>
+            <div class="int-row">
+              <div class="status-dot pass"></div>
+              <div class="int-app-name">GIS Transmission Assets</div>
+              <div class="int-version">v4.0.0</div>
+              <div class="int-health"><div class="int-health-fill" style="width:96%;background:#22c55e"></div></div>
+            </div>
+            <div class="int-row">
+              <div class="status-dot pass"></div>
+              <div class="int-app-name">Energy Market Interface</div>
+              <div class="int-version">v1.8.3</div>
+              <div class="int-health"><div class="int-health-fill" style="width:99%;background:#22c55e"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Distribution -->
+        <div class="integration-card">
+          <div class="int-header">
+            <div class="int-icon" style="background:rgba(167,139,250,0.15)">🏘️</div>
+            <div class="int-title" style="color:#a78bfa">Distribution Apps</div>
+            <div class="int-count">22 apps · 11 integrations</div>
+          </div>
+          <div class="int-body">
+            <div class="int-row">
+              <div class="status-dot fail"></div>
+              <div class="int-app-name">AMI Head-End System</div>
+              <div class="int-version">v5.2.3</div>
+              <div class="int-health"><div class="int-health-fill" style="width:61%;background:#ef4444"></div></div>
+            </div>
+            <div class="int-row">
+              <div class="status-dot pass"></div>
+              <div class="int-app-name">OMS (Outage Mgmt)</div>
+              <div class="int-version">v6.1.0</div>
+              <div class="int-health"><div class="int-health-fill" style="width:97%;background:#22c55e"></div></div>
+            </div>
+            <div class="int-row">
+              <div class="status-dot pass"></div>
+              <div class="int-app-name">DMS (Distribution Mgmt)</div>
+              <div class="int-version">v3.4.1</div>
+              <div class="int-health"><div class="int-health-fill" style="width:98%;background:#22c55e"></div></div>
+            </div>
+            <div class="int-row">
+              <div class="status-dot pass"></div>
+              <div class="int-app-name">GIS Distribution Layer</div>
+              <div class="int-version">v8.2.0</div>
+              <div class="int-health"><div class="int-health-fill" style="width:100%;background:#22c55e"></div></div>
+            </div>
+            <div class="int-row">
+              <div class="status-dot pass"></div>
+              <div class="int-app-name">Mobile Field Workforce</div>
+              <div class="int-version">v6.0.1</div>
+              <div class="int-health"><div class="int-health-fill" style="width:94%;background:#a78bfa"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Billing + CX -->
+        <div class="integration-card">
+          <div class="int-header">
+            <div class="int-icon" style="background:rgba(251,113,133,0.15)">💳</div>
+            <div class="int-title" style="color:#fb7185">Billing & Customer Care</div>
+            <div class="int-count">27 apps · 14 integrations</div>
+          </div>
+          <div class="int-body">
+            <div class="int-row">
+              <div class="status-dot run"></div>
+              <div class="int-app-name">Billing Engine (CC&B)</div>
+              <div class="int-version">v8.3.0</div>
+              <div class="int-health"><div class="int-health-fill" style="width:88%;background:#fb7185"></div></div>
+            </div>
+            <div class="int-row">
+              <div class="status-dot pass"></div>
+              <div class="int-app-name">CIS / Customer Portal</div>
+              <div class="int-version">v5.2.0</div>
+              <div class="int-health"><div class="int-health-fill" style="width:99%;background:#22c55e"></div></div>
+            </div>
+            <div class="int-row">
+              <div class="status-dot run"></div>
+              <div class="int-app-name">CRM (Salesforce Utility)</div>
+              <div class="int-version">v4.2.0</div>
+              <div class="int-health"><div class="int-health-fill" style="width:72%;background:#f59e0b"></div></div>
+            </div>
+            <div class="int-row">
+              <div class="status-dot pass"></div>
+              <div class="int-app-name">Payment Gateway</div>
+              <div class="int-version">v3.1.0</div>
+              <div class="int-health"><div class="int-health-fill" style="width:100%;background:#22c55e"></div></div>
+            </div>
+            <div class="int-row">
+              <div class="status-dot pass"></div>
+              <div class="int-app-name">IVR / Contact Center</div>
+              <div class="int-version">v2.5.0</div>
+              <div class="int-health"><div class="int-health-fill" style="width:96%;background:#00e5b0"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOTTOM ROW -->
+      <div class="bottom-row">
+        <!-- Activity Feed -->
+        <div class="activity-feed">
+          <div class="section-header">
+            <span class="section-title">Audit Log</span>
+            <span class="section-meta">Live feed</span>
+            <div class="section-sep"></div>
+            <span class="filter-pill active">All Events</span>
+          </div>
+          <div class="feed-body">
+            <div class="feed-item">
+              <div class="feed-dot" style="background:var(--warn)"></div>
+              <div class="feed-content">
+                <div class="feed-text"><strong>AMI Head-End v5.3.0</strong> — Test suite failed. 3 of 47 regression tests failed in staging. Deploy blocked.</div>
+                <div class="feed-time">2 min ago · K. Wu · DISTRIBUTION</div>
+              </div>
+            </div>
+            <div class="feed-item">
+              <div class="feed-dot" style="background:var(--success)"></div>
+              <div class="feed-content">
+                <div class="feed-text"><strong>Rate Engine API v1.6.0</strong> — Successfully deployed to PROD. Zero downtime cutover completed.</div>
+                <div class="feed-time">18 min ago · S. Lee · BILLING</div>
+              </div>
+            </div>
+            <div class="feed-item">
+              <div class="feed-dot" style="background:var(--accent)"></div>
+              <div class="feed-content">
+                <div class="feed-text"><strong>CRM Integration v4.2.0</strong> — Blue/green deploy initiated. 72% traffic shifted to new version.</div>
+                <div class="feed-time">31 min ago · J. Chen · CUSTOMER CARE</div>
+              </div>
+            </div>
+            <div class="feed-item">
+              <div class="feed-dot" style="background:var(--info)"></div>
+              <div class="feed-content">
+                <div class="feed-text"><strong>SCADA Gateway v3.2.0</strong> — NERC CIP security scan passed. Change advisory board approval received.</div>
+                <div class="feed-time">1 hr ago · M. Singh · TRANSMISSION</div>
+              </div>
+            </div>
+            <div class="feed-item">
+              <div class="feed-dot" style="background:var(--danger)"></div>
+              <div class="feed-content">
+                <div class="feed-text"><strong>EMS Core v4.3.0</strong> — Rollback candidate flagged. Memory leak detected in load test. CAB review required.</div>
+                <div class="feed-time">2 hr ago · R. Patel · GENERATION</div>
+              </div>
+            </div>
+            <div class="feed-item">
+              <div class="feed-dot" style="background:var(--success)"></div>
+              <div class="feed-content">
+                <div class="feed-text"><strong>IVR / Contact Center v2.5.0</strong> — UAT sign-off received from Customer Operations. Queued for prod deploy.</div>
+                <div class="feed-time">3 hr ago · L. Garcia · CUSTOMER CARE</div>
+              </div>
+            </div>
+            <div class="feed-item">
+              <div class="feed-dot" style="background:var(--warn)"></div>
+              <div class="feed-content">
+                <div class="feed-text"><strong>Billing Engine v8.4.0</strong> — Regression suite 85% complete. SOX controls checklist pending finance sign-off.</div>
+                <div class="feed-time">4 hr ago · A. Torres · BILLING</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Approval Queue -->
+        <div class="approval-panel">
+          <div class="section-header">
+            <span class="section-title">Approval Queue</span>
+            <span class="section-meta" style="color:var(--warn)">5 pending</span>
+          </div>
+          <div class="approval-item">
+            <div class="appr-app">SCADA Gateway v3.2.0</div>
+            <div class="appr-meta">TX · OT · PROD-CTRL · M. Singh · NERC CIP critical path</div>
+            <div class="appr-actions">
+              <button class="btn-approve">✓ Approve</button>
+              <button class="btn-reject">✗ Reject</button>
+            </div>
+          </div>
+          <div class="approval-item">
+            <div class="appr-app">Billing Engine v8.4.0</div>
+            <div class="appr-meta">BILLING · IT · PROD-EAST · A. Torres · SOX sign-off</div>
+            <div class="appr-actions">
+              <button class="btn-approve">✓ Approve</button>
+              <button class="btn-reject">✗ Reject</button>
+            </div>
+          </div>
+          <div class="approval-item">
+            <div class="appr-app">EMS Core v4.3.0</div>
+            <div class="appr-meta">GEN · OT/SCADA · PROD-WEST · R. Patel · CAB required</div>
+            <div class="appr-actions">
+              <button class="btn-approve">✓ Approve</button>
+              <button class="btn-reject">✗ Reject</button>
+            </div>
+          </div>
+          <div class="approval-item">
+            <div class="appr-app">DMS Field Crew App</div>
+            <div class="appr-meta">DIST · IT/Mobile · PROD-MOBILE · D. Brown</div>
+            <div class="appr-actions">
+              <button class="btn-approve">✓ Approve</button>
+              <button class="btn-reject">✗ Reject</button>
+            </div>
+          </div>
+          <div class="approval-item">
+            <div class="appr-app">GIS Dist. Layer v8.3.0</div>
+            <div class="appr-meta">DIST · IT/GIS · PROD · F. Okafor</div>
+            <div class="appr-actions">
+              <button class="btn-approve">✓ Approve</button>
+              <button class="btn-reject">✗ Reject</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  // Live clock
+  function updateClock() {
+    const now = new Date();
+    const h = String(now.getUTCHours()).padStart(2,'0');
+    const m = String(now.getUTCMinutes()).padStart(2,'0');
+    const s = String(now.getUTCSeconds()).padStart(2,'0');
+    document.getElementById('clock').textContent = `${h}:${m}:${s} UTC`;
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // Simulate deploying progress
+  let crm = 72;
+  setInterval(() => {
+    if (crm < 100) {
+      crm += Math.random() * 0.3;
+      document.querySelectorAll('.progress-fill.active').forEach(el => {
+        el.style.width = Math.min(crm, 99).toFixed(1) + '%';
+      });
+    }
+  }, 800);
+
+  // Nav item click
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+    });
+  });
+
+  // Filter pills
+  document.querySelectorAll('.filter-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      const siblings = pill.parentElement.querySelectorAll('.filter-pill');
+      siblings.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+    });
+  });
+
+  // Approval buttons
+  document.querySelectorAll('.btn-approve').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const item = e.target.closest('.approval-item');
+      item.style.opacity = '0.4';
+      item.style.pointerEvents = 'none';
+      const app = item.querySelector('.appr-app').textContent;
+      console.log('Approved:', app);
+    });
+  });
+
+  document.querySelectorAll('.btn-reject').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const item = e.target.closest('.approval-item');
+      item.style.background = 'rgba(239,68,68,0.08)';
+      item.style.opacity = '0.5';
+      item.style.pointerEvents = 'none';
+    });
+  });
+</script>
+</body>
+</html>
