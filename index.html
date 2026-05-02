@@ -3,1587 +3,1285 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GridFlow — Utility Release Management</title>
+<title>GridFlow — Create Release</title>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #09100f;
-    --bg2: #0e1a18;
-    --bg3: #132420;
-    --panel: #0d1e1b;
-    --border: #1e3530;
-    --border2: #254740;
-    --accent: #00e5b0;
-    --accent2: #00b88c;
-    --accent-dim: rgba(0,229,176,0.12);
-    --accent-glow: rgba(0,229,176,0.25);
-    --warn: #f59e0b;
-    --warn-dim: rgba(245,158,11,0.15);
-    --danger: #ef4444;
-    --danger-dim: rgba(239,68,68,0.15);
-    --info: #38bdf8;
-    --info-dim: rgba(56,189,248,0.12);
-    --success: #22c55e;
-    --text-primary: #e8f5f2;
-    --text-secondary: #7eada5;
-    --text-muted: #4a7a72;
-    --font-display: 'Rajdhani', sans-serif;
-    --font-mono: 'IBM Plex Mono', monospace;
-    --font-body: 'IBM Plex Sans', sans-serif;
-  }
-
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    background: var(--bg);
-    color: var(--text-primary);
-    font-family: var(--font-body);
-    font-size: 13px;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  /* Animated grid background */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(0,229,176,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,229,176,0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  /* ===== LAYOUT ===== */
-  .shell { display: flex; height: 100vh; position: relative; z-index: 1; }
-
-  /* ===== SIDEBAR ===== */
-  .sidebar {
-    width: 220px;
-    flex-shrink: 0;
-    background: var(--panel);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .logo-area {
-    padding: 20px 18px 16px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .logo-mark {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 4px;
-  }
-
-  .logo-icon {
-    width: 32px;
-    height: 32px;
-    position: relative;
-  }
-
-  .logo-icon svg { width: 100%; height: 100%; }
-
-  .logo-name {
-    font-family: var(--font-display);
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    color: var(--accent);
-    text-transform: uppercase;
-  }
-
-  .logo-sub {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    color: var(--text-muted);
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    padding-left: 42px;
-  }
-
-  .nav { padding: 16px 0; flex: 1; overflow-y: auto; }
-
-  .nav-section {
-    margin-bottom: 20px;
-  }
-
-  .nav-label {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    letter-spacing: 2px;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    padding: 0 18px 8px;
-  }
-
-  .nav-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 18px;
-    cursor: pointer;
-    transition: all 0.15s;
-    border-left: 2px solid transparent;
-    color: var(--text-secondary);
-    font-size: 13px;
-    font-weight: 500;
-  }
-
-  .nav-item:hover { background: var(--accent-dim); color: var(--text-primary); }
-  .nav-item.active {
-    background: var(--accent-dim);
-    border-left-color: var(--accent);
-    color: var(--accent);
-  }
-
-  .nav-item .icon { font-size: 15px; opacity: 0.8; }
-
-  .nav-badge {
-    margin-left: auto;
-    background: var(--danger);
-    color: white;
-    font-size: 10px;
-    font-family: var(--font-mono);
-    padding: 1px 6px;
-    border-radius: 3px;
-  }
-
-  .nav-badge.warn { background: var(--warn); color: #1a0; }
-  .nav-badge.ok { background: var(--success); }
-
-  /* Domain indicators */
-  .domain-dots {
-    padding: 12px 18px;
-    border-top: 1px solid var(--border);
-  }
-
-  .domain-label {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    letter-spacing: 2px;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    margin-bottom: 10px;
-  }
-
-  .domain-dot {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 0;
-    font-size: 11px;
-    color: var(--text-secondary);
-  }
-
-  .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-
-  .dot.gen { background: #f59e0b; box-shadow: 0 0 6px #f59e0b80; }
-  .dot.tx { background: #38bdf8; box-shadow: 0 0 6px #38bdf880; }
-  .dot.dx { background: #a78bfa; box-shadow: 0 0 6px #a78bfa80; }
-  .dot.billing { background: #fb7185; box-shadow: 0 0 6px #fb718580; }
-  .dot.cx { background: #00e5b0; box-shadow: 0 0 6px #00e5b080; }
-
-  /* ===== MAIN ===== */
-  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-
-  /* ===== TOPBAR ===== */
-  .topbar {
-    height: 52px;
-    flex-shrink: 0;
-    background: var(--panel);
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    padding: 0 24px;
-    gap: 16px;
-  }
-
-  .topbar-title {
-    font-family: var(--font-display);
-    font-size: 18px;
-    font-weight: 600;
-    letter-spacing: 1px;
-    color: var(--text-primary);
-  }
-
-  .topbar-env {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    padding: 3px 10px;
-    border: 1px solid var(--accent);
-    color: var(--accent);
-    border-radius: 3px;
-    letter-spacing: 1px;
-  }
-
-  .topbar-sep { flex: 1; }
-
-  .topbar-clock {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--text-muted);
-    letter-spacing: 1px;
-  }
-
-  .topbar-btn {
-    background: var(--accent);
-    color: #041a15;
-    border: none;
-    padding: 7px 14px;
-    font-family: var(--font-display);
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    cursor: pointer;
-    border-radius: 3px;
-    text-transform: uppercase;
-    transition: all 0.15s;
-  }
-
-  .topbar-btn:hover { background: var(--accent2); transform: translateY(-1px); }
-
-  /* ===== CONTENT ===== */
-  .content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-
-  /* ===== STAT CARDS ===== */
-  .stat-row {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 12px;
-  }
-
-  .stat-card {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-top: 2px solid var(--border);
-    padding: 14px 16px;
-    position: relative;
-    overflow: hidden;
-    transition: border-color 0.2s;
-  }
-
-  .stat-card::after {
-    content: '';
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: 1px;
-    opacity: 0;
-    transition: opacity 0.3s;
-  }
-
-  .stat-card:hover::after { opacity: 1; }
-
-  .stat-card.gen { border-top-color: #f59e0b; }
-  .stat-card.tx { border-top-color: #38bdf8; }
-  .stat-card.dx { border-top-color: #a78bfa; }
-  .stat-card.billing { border-top-color: #fb7185; }
-  .stat-card.cx { border-top-color: #00e5b0; }
-
-  .stat-domain {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    margin-bottom: 8px;
-  }
-
-  .stat-num {
-    font-family: var(--font-display);
-    font-size: 28px;
-    font-weight: 700;
-    line-height: 1;
-    margin-bottom: 4px;
-  }
-
-  .stat-card.gen .stat-num { color: #f59e0b; }
-  .stat-card.tx .stat-num { color: #38bdf8; }
-  .stat-card.dx .stat-num { color: #a78bfa; }
-  .stat-card.billing .stat-num { color: #fb7185; }
-  .stat-card.cx .stat-num { color: #00e5b0; }
-
-  .stat-label { font-size: 11px; color: var(--text-secondary); }
-
-  .stat-sub {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 8px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-  }
-
-  .stat-up { color: var(--success); }
-  .stat-warn { color: var(--warn); }
-  .stat-err { color: var(--danger); }
-
-  /* ===== PIPELINE VIEW ===== */
-  .pipeline-section {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    overflow: hidden;
-  }
-
-  .section-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 18px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg3);
-  }
-
-  .section-title {
-    font-family: var(--font-display);
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-  }
-
-  .section-meta {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--text-muted);
-  }
-
-  .section-sep { flex: 1; }
-
-  .filter-pill {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    padding: 4px 10px;
-    border: 1px solid var(--border2);
-    border-radius: 20px;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-
-  .filter-pill:hover, .filter-pill.active {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: var(--accent-dim);
-  }
-
-  /* Release Pipeline Flow */
-  .pipeline-flow {
-    padding: 20px;
-    display: flex;
-    gap: 0;
-    overflow-x: auto;
-  }
-
-  .pipeline-stage {
-    flex: 1;
-    min-width: 150px;
-    position: relative;
-  }
-
-  .pipeline-stage + .pipeline-stage::before {
-    content: '▶';
-    position: absolute;
-    left: -10px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--border2);
-    font-size: 12px;
-    z-index: 2;
-  }
-
-  .stage-header {
-    text-align: center;
-    padding: 8px;
-    margin-bottom: 10px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .stage-name {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--text-muted);
-  }
-
-  .stage-count {
-    font-family: var(--font-display);
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--text-secondary);
-  }
-
-  .stage-card {
-    margin: 0 8px 8px;
-    padding: 10px 12px;
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: 2px;
-    cursor: pointer;
-    transition: all 0.15s;
-    border-left: 3px solid transparent;
-  }
-
-  .stage-card:hover {
-    border-color: var(--accent);
-    border-left-color: var(--accent);
-    background: var(--accent-dim);
-  }
-
-  .stage-card.gen-c { border-left-color: #f59e0b; }
-  .stage-card.tx-c { border-left-color: #38bdf8; }
-  .stage-card.dx-c { border-left-color: #a78bfa; }
-  .stage-card.billing-c { border-left-color: #fb7185; }
-  .stage-card.cx-c { border-left-color: #00e5b0; }
-
-  .card-app {
-    font-weight: 500;
-    font-size: 12px;
-    color: var(--text-primary);
-    margin-bottom: 3px;
-  }
-
-  .card-ver {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--text-muted);
-  }
-
-  .card-meta {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 6px;
-  }
-
-  .status-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-  }
-
-  .status-dot.pass { background: var(--success); }
-  .status-dot.fail { background: var(--danger); }
-  .status-dot.run { background: var(--warn); animation: pulse 1s infinite; }
-  .status-dot.wait { background: var(--text-muted); }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
-  }
-
-  .card-status-text {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    color: var(--text-muted);
-  }
-
-  /* ===== RELEASE TABLE ===== */
-  .release-section {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    overflow: hidden;
-  }
-
-  .table-wrap { overflow-x: auto; }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  thead th {
-    background: var(--bg3);
-    padding: 10px 16px;
-    text-align: left;
-    font-family: var(--font-mono);
-    font-size: 9px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    border-bottom: 1px solid var(--border);
-    white-space: nowrap;
-  }
-
-  tbody tr {
-    border-bottom: 1px solid var(--border);
-    transition: background 0.12s;
-    cursor: pointer;
-  }
-
-  tbody tr:hover { background: var(--accent-dim); }
-  tbody tr:last-child { border-bottom: none; }
-
-  tbody td {
-    padding: 10px 16px;
-    font-size: 12px;
-    color: var(--text-secondary);
-    vertical-align: middle;
-    white-space: nowrap;
-  }
-
-  .td-app { color: var(--text-primary); font-weight: 500; }
-  .td-ver { font-family: var(--font-mono); font-size: 11px; color: var(--accent); }
-  .td-domain { display: inline-flex; align-items: center; gap: 5px; }
-
-  .domain-tag {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    padding: 2px 8px;
-    border-radius: 2px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-
-  .domain-tag.gen { background: rgba(245,158,11,0.15); color: #f59e0b; }
-  .domain-tag.tx { background: rgba(56,189,248,0.15); color: #38bdf8; }
-  .domain-tag.dx { background: rgba(167,139,250,0.15); color: #a78bfa; }
-  .domain-tag.billing { background: rgba(251,113,133,0.15); color: #fb7185; }
-  .domain-tag.cx { background: rgba(0,229,176,0.15); color: #00e5b0; }
-
-  .status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    padding: 3px 8px;
-    border-radius: 2px;
-  }
-
-  .status-badge.scheduled { background: var(--info-dim); color: var(--info); }
-  .status-badge.deploying { background: var(--warn-dim); color: var(--warn); }
-  .status-badge.deployed { background: rgba(34,197,94,0.15); color: var(--success); }
-  .status-badge.failed { background: var(--danger-dim); color: var(--danger); }
-  .status-badge.review { background: var(--accent-dim); color: var(--accent); }
-  .status-badge.rollback { background: var(--danger-dim); color: var(--danger); }
-
-  /* Progress bar */
-  .progress-bar {
-    width: 80px;
-    height: 4px;
-    background: var(--border);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  .progress-fill {
-    height: 100%;
-    border-radius: 2px;
-    background: var(--accent);
-    transition: width 1s ease;
-  }
-
-  /* ===== INTEGRATION MAP ===== */
-  .integrations-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-  }
-
-  .integration-card {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    overflow: hidden;
-  }
-
-  .int-header {
-    padding: 14px 18px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg3);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .int-icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-    flex-shrink: 0;
-  }
-
-  .int-title {
-    font-family: var(--font-display);
-    font-size: 14px;
-    font-weight: 600;
-    letter-spacing: 1px;
-  }
-
-  .int-count {
-    margin-left: auto;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--text-muted);
-  }
-
-  .int-body { padding: 12px; }
-
-  .int-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 7px 8px;
-    border-radius: 2px;
-    cursor: pointer;
-    transition: background 0.12s;
-  }
-
-  .int-row:hover { background: var(--accent-dim); }
-
-  .int-app-name { flex: 1; font-size: 12px; color: var(--text-primary); }
-  .int-version { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
-  .int-health {
-    width: 50px;
-    height: 3px;
-    background: var(--border);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  .int-health-fill { height: 100%; border-radius: 2px; }
-
-  /* ===== ACTIVITY FEED ===== */
-  .bottom-row {
-    display: grid;
-    grid-template-columns: 1fr 320px;
-    gap: 20px;
-  }
-
-  .activity-feed {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    overflow: hidden;
-  }
-
-  .feed-body {
-    padding: 8px 0;
-    max-height: 220px;
-    overflow-y: auto;
-  }
-
-  .feed-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 8px 16px;
-    border-bottom: 1px solid var(--border);
-    transition: background 0.12s;
-  }
-
-  .feed-item:hover { background: var(--accent-dim); }
-  .feed-item:last-child { border-bottom: none; }
-
-  .feed-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    margin-top: 4px;
-    flex-shrink: 0;
-  }
-
-  .feed-content { flex: 1; }
-  .feed-text { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
-  .feed-text strong { color: var(--text-primary); }
-  .feed-time {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    color: var(--text-muted);
-    margin-top: 3px;
-  }
-
-  /* ===== APPROVAL PANEL ===== */
-  .approval-panel {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    overflow: hidden;
-  }
-
-  .approval-item {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .approval-item:last-child { border-bottom: none; }
-
-  .appr-app { font-weight: 500; font-size: 12px; color: var(--text-primary); }
-  .appr-meta { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin: 3px 0 8px; }
-
-  .appr-actions { display: flex; gap: 6px; }
-
-  .btn-approve {
-    flex: 1;
-    background: rgba(34,197,94,0.15);
-    border: 1px solid #22c55e50;
-    color: var(--success);
-    padding: 5px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: all 0.15s;
-  }
-
-  .btn-approve:hover { background: rgba(34,197,94,0.3); }
-
-  .btn-reject {
-    flex: 1;
-    background: var(--danger-dim);
-    border: 1px solid rgba(239,68,68,0.3);
-    color: var(--danger);
-    padding: 5px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: all 0.15s;
-  }
-
-  .btn-reject:hover { background: rgba(239,68,68,0.3); }
-
-  /* ===== COMPLIANCE BAR ===== */
-  .compliance-bar {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    padding: 14px 20px;
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    flex-wrap: wrap;
-  }
-
-  .comp-label {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--text-muted);
-  }
-
-  .comp-items {
-    display: flex;
-    gap: 16px;
-    flex-wrap: wrap;
-    flex: 1;
-  }
-
-  .comp-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 12px;
-    border: 1px solid var(--border);
-    border-radius: 2px;
-  }
-
-  .comp-name { font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); }
-
-  .comp-check {
-    font-size: 11px;
-  }
-
-  .comp-check.ok { color: var(--success); }
-  .comp-check.warn { color: var(--warn); }
-  .comp-check.fail { color: var(--danger); }
-
-  /* Scrollbar */
-  ::-webkit-scrollbar { width: 4px; height: 4px; }
-  ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
-
-  /* Glow animation on accent elements */
-  @keyframes glow {
-    0%, 100% { box-shadow: 0 0 4px var(--accent-glow); }
-    50% { box-shadow: 0 0 12px var(--accent-glow); }
-  }
-
-  .nav-item.active { animation: glow 3s infinite; }
-
-  /* Loading bar for deploying */
-  @keyframes shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(200%); }
-  }
-
-  .progress-fill.active {
-    position: relative;
-    overflow: hidden;
-  }
-
-  .progress-fill.active::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-    animation: shimmer 1.5s infinite;
-  }
-
-  /* Power line decorative element */
-  .power-line {
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--accent), var(--info), var(--warn), transparent);
-    opacity: 0.4;
-    margin: 0;
-  }
+:root {
+  --bg: #09100f;
+  --bg2: #0e1a18;
+  --bg3: #132420;
+  --panel: #0d1e1b;
+  --border: #1e3530;
+  --border2: #254740;
+  --accent: #00e5b0;
+  --accent2: #00b88c;
+  --accent-dim: rgba(0,229,176,0.10);
+  --accent-glow: rgba(0,229,176,0.25);
+  --warn: #f59e0b;
+  --warn-dim: rgba(245,158,11,0.13);
+  --danger: #ef4444;
+  --danger-dim: rgba(239,68,68,0.13);
+  --info: #38bdf8;
+  --info-dim: rgba(56,189,248,0.10);
+  --success: #22c55e;
+  --text-primary: #e8f5f2;
+  --text-secondary: #7eada5;
+  --text-muted: #4a7a72;
+  --font-display: 'Rajdhani', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --font-body: 'IBM Plex Sans', sans-serif;
+  --gen: #f59e0b; --tx: #38bdf8; --dx: #a78bfa; --bill: #fb7185; --cx: #00e5b0;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text-primary);font-family:var(--font-body);font-size:13px;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,229,176,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,176,0.025) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+
+/* LAYOUT */
+.shell{display:flex;height:100vh;position:relative;z-index:1;}
+
+/* SIDEBAR */
+.sidebar{width:210px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;}
+.logo-area{padding:18px 16px 14px;border-bottom:1px solid var(--border);}
+.logo-mark{display:flex;align-items:center;gap:9px;margin-bottom:3px;}
+.logo-name{font-family:var(--font-display);font-size:22px;font-weight:700;letter-spacing:2px;color:var(--accent);text-transform:uppercase;}
+.logo-sub{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;padding-left:40px;}
+.nav{padding:14px 0;flex:1;}
+.nav-section{margin-bottom:18px;}
+.nav-label{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;padding:0 16px 7px;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 16px;cursor:pointer;transition:all 0.15s;border-left:2px solid transparent;color:var(--text-secondary);font-size:13px;font-weight:500;}
+.nav-item:hover{background:var(--accent-dim);color:var(--text-primary);}
+.nav-item.active{background:var(--accent-dim);border-left-color:var(--accent);color:var(--accent);}
+.nav-badge{margin-left:auto;background:var(--danger);color:#fff;font-size:10px;font-family:var(--font-mono);padding:1px 6px;border-radius:3px;}
+.nav-badge.warn{background:var(--warn);color:#000;}
+.nav-badge.ok{background:var(--success);}
+.domain-health{padding:12px 16px;border-top:1px solid var(--border);}
+.dh-label{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;margin-bottom:9px;}
+.dh-row{display:flex;align-items:center;gap:7px;padding:3px 0;font-size:11px;color:var(--text-secondary);}
+.dh-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.topbar{height:50px;flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 22px;gap:14px;}
+.topbar-title{font-family:var(--font-display);font-size:17px;font-weight:600;letter-spacing:1px;}
+.topbar-env{font-family:var(--font-mono);font-size:10px;padding:3px 9px;border:1px solid var(--accent);color:var(--accent);border-radius:3px;letter-spacing:1px;}
+.topbar-sep{flex:1;}
+.topbar-clock{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);letter-spacing:1px;}
+.topbar-btn{background:var(--accent);color:#041a15;border:none;padding:7px 14px;font-family:var(--font-display);font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer;border-radius:3px;text-transform:uppercase;transition:all 0.15s;}
+.topbar-btn:hover{background:var(--accent2);transform:translateY(-1px);}
+.power-line{height:1px;background:linear-gradient(90deg,transparent,var(--accent),var(--info),var(--warn),transparent);opacity:0.35;flex-shrink:0;}
+
+/* CONTENT */
+.content{flex:1;overflow-y:auto;padding:18px 22px;display:flex;flex-direction:column;gap:18px;}
+
+/* STEP WIZARD */
+.wizard-steps{display:flex;align-items:center;gap:0;background:var(--panel);border:1px solid var(--border);padding:16px 20px;}
+.wstep{display:flex;align-items:center;gap:10px;flex:1;position:relative;}
+.wstep+.wstep::before{content:'';position:absolute;left:-1px;top:50%;width:calc(100% - 0px);height:1px;background:var(--border);transform:translateY(-50%);z-index:0;}
+.wstep-num{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:11px;font-weight:500;color:var(--text-muted);background:var(--bg);position:relative;z-index:1;flex-shrink:0;transition:all 0.3s;}
+.wstep.active .wstep-num{border-color:var(--accent);color:var(--accent);box-shadow:0 0 10px var(--accent-glow);}
+.wstep.done .wstep-num{border-color:var(--success);background:var(--success);color:#041a15;}
+.wstep-info{position:relative;z-index:1;}
+.wstep-label{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);transition:color 0.3s;}
+.wstep.active .wstep-label{color:var(--accent);}
+.wstep.done .wstep-label{color:var(--success);}
+.wstep-name{font-family:var(--font-display);font-size:13px;font-weight:600;color:var(--text-secondary);transition:color 0.3s;}
+.wstep.active .wstep-name{color:var(--text-primary);}
+.wstep.done .wstep-name{color:var(--success);}
+
+/* STEP PANELS */
+.step-panel{display:none;animation:fadeIn 0.3s ease;}
+.step-panel.active{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+/* FORMS */
+.form-card{background:var(--panel);border:1px solid var(--border);overflow:hidden;}
+.form-header{padding:14px 18px;border-bottom:1px solid var(--border);background:var(--bg3);display:flex;align-items:center;gap:10px;}
+.form-title{font-family:var(--font-display);font-size:16px;font-weight:600;letter-spacing:1px;text-transform:uppercase;}
+.form-subtitle{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);}
+.form-body{padding:20px;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+.form-group{display:flex;flex-direction:column;gap:6px;}
+.form-group.full{grid-column:1/-1;}
+.form-label{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);}
+.form-input,.form-select,.form-textarea{background:var(--bg3);border:1px solid var(--border2);color:var(--text-primary);padding:9px 12px;font-family:var(--font-body);font-size:13px;border-radius:2px;outline:none;transition:border-color 0.15s,box-shadow 0.15s;width:100%;}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-dim);}
+.form-select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%234a7a72' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;}
+.form-select option{background:var(--bg3);}
+.form-textarea{resize:vertical;min-height:80px;line-height:1.5;}
+.form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);}
+.btn-primary{background:var(--accent);color:#041a15;border:none;padding:9px 20px;font-family:var(--font-display);font-size:14px;font-weight:700;letter-spacing:1px;cursor:pointer;border-radius:3px;text-transform:uppercase;transition:all 0.15s;}
+.btn-primary:hover{background:var(--accent2);transform:translateY(-1px);}
+.btn-secondary{background:transparent;color:var(--text-secondary);border:1px solid var(--border2);padding:9px 20px;font-family:var(--font-display);font-size:14px;font-weight:600;letter-spacing:1px;cursor:pointer;border-radius:3px;text-transform:uppercase;transition:all 0.15s;}
+.btn-secondary:hover{border-color:var(--accent);color:var(--accent);}
+
+/* DOMAIN SELECTOR */
+.domain-selector{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;}
+.domain-card{border:2px solid var(--border);background:var(--bg3);padding:14px 10px;text-align:center;cursor:pointer;border-radius:3px;transition:all 0.2s;}
+.domain-card:hover{border-color:var(--border2);background:var(--bg2);}
+.domain-card.selected{background:var(--accent-dim);}
+.domain-card.selected.gen{border-color:var(--gen);}
+.domain-card.selected.tx{border-color:var(--tx);}
+.domain-card.selected.dx{border-color:var(--dx);}
+.domain-card.selected.bill{border-color:var(--bill);}
+.domain-card.selected.cx{border-color:var(--cx);}
+.domain-icon{font-size:22px;margin-bottom:6px;}
+.domain-name{font-family:var(--font-display);font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-secondary);}
+.domain-card.selected .domain-name{color:var(--text-primary);}
+.domain-count{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);margin-top:3px;}
+
+/* RELEASE TYPE PILLS */
+.type-pills{display:flex;gap:8px;flex-wrap:wrap;}
+.type-pill{padding:7px 14px;border:1px solid var(--border2);border-radius:20px;cursor:pointer;font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);transition:all 0.15s;background:var(--bg3);}
+.type-pill:hover{border-color:var(--accent);color:var(--accent);}
+.type-pill.selected{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
+
+/* ===== STEP 2 — IMPACT ANALYSIS ===== */
+.impact-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.impact-domain-card{background:var(--panel);border:1px solid var(--border);overflow:hidden;}
+.idc-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px;}
+.idc-title{font-family:var(--font-display);font-size:14px;font-weight:600;letter-spacing:1px;}
+.idc-badge{margin-left:auto;font-family:var(--font-mono);font-size:9px;padding:2px 8px;border-radius:20px;}
+.idc-badge.high{background:var(--danger-dim);color:var(--danger);}
+.idc-badge.med{background:var(--warn-dim);color:var(--warn);}
+.idc-badge.low{background:rgba(34,197,94,0.12);color:var(--success);}
+.idc-badge.none{background:var(--border);color:var(--text-muted);}
+.idc-body{padding:12px;}
+.impact-row{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:2px;border-bottom:1px solid var(--border);}
+.impact-row:last-child{border-bottom:none;}
+.ir-app{flex:1;font-size:12px;color:var(--text-primary);}
+.ir-type{font-family:var(--font-mono);font-size:9px;padding:2px 7px;border-radius:2px;text-transform:uppercase;}
+.ir-type.direct{background:var(--danger-dim);color:var(--danger);}
+.ir-type.indirect{background:var(--warn-dim);color:var(--warn);}
+.ir-type.monitor{background:var(--info-dim);color:var(--info);}
+.ir-type.none{background:var(--border);color:var(--text-muted);}
+.ir-desc{font-size:10px;color:var(--text-muted);margin-top:2px;}
+
+/* SOURCE RELEASE SUMMARY */
+.release-summary-bar{background:var(--bg3);border:1px solid var(--border);padding:12px 18px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.rsb-label{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);}
+.rsb-val{font-family:var(--font-display);font-size:14px;font-weight:600;}
+.rsb-chip{font-family:var(--font-mono);font-size:10px;padding:3px 10px;border-radius:2px;}
+.rsb-chip.gen{background:rgba(245,158,11,0.15);color:var(--gen);}
+.rsb-chip.tx{background:rgba(56,189,248,0.15);color:var(--tx);}
+.rsb-chip.dx{background:rgba(167,139,250,0.15);color:var(--dx);}
+.rsb-chip.billing{background:rgba(251,113,133,0.15);color:var(--bill);}
+.rsb-chip.cx{background:rgba(0,229,176,0.15);color:var(--cx);}
+.rsb-divider{width:1px;height:24px;background:var(--border);}
+
+/* ===== STEP 3 — RISK ===== */
+.risk-score-panel{background:var(--panel);border:1px solid var(--border);padding:24px;display:flex;gap:28px;align-items:flex-start;}
+.risk-meter{flex-shrink:0;text-align:center;}
+.risk-circle{width:120px;height:120px;position:relative;margin:0 auto 12px;}
+.risk-circle svg{width:100%;height:100%;}
+.risk-score-num{font-family:var(--font-display);font-size:32px;font-weight:700;position:absolute;top:50%;left:50%;transform:translate(-50%,-55%);}
+.risk-score-label{font-family:var(--font-mono);font-size:10px;letter-spacing:1px;position:absolute;top:50%;left:50%;transform:translate(-50%,30%);}
+.risk-level-tag{font-family:var(--font-display);font-size:16px;font-weight:700;letter-spacing:2px;text-transform:uppercase;}
+.risk-factors{flex:1;}
+.rf-title{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px;}
+.rf-row{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.rf-name{font-size:12px;color:var(--text-secondary);width:180px;flex-shrink:0;}
+.rf-bar-wrap{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
+.rf-bar{height:100%;border-radius:3px;transition:width 1s ease;}
+.rf-val{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);width:30px;text-align:right;}
+.risk-checklist{flex:1;}
+.rc-title{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px;}
+.rc-item{display:flex;align-items:flex-start;gap:9px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.rc-item:last-child{border-bottom:none;}
+.rc-icon{font-size:13px;margin-top:1px;flex-shrink:0;}
+.rc-text{color:var(--text-secondary);line-height:1.4;}
+.rc-text strong{color:var(--text-primary);}
+
+/* ===== STEP 4 — DEPENDENCY MAP ===== */
+.dep-map-card{background:var(--panel);border:1px solid var(--border);overflow:hidden;}
+.dep-map-body{padding:20px;position:relative;min-height:380px;display:flex;align-items:center;justify-content:center;}
+.dep-canvas{width:100%;max-width:700px;position:relative;}
+.dep-node{position:absolute;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:8px 12px;font-size:11px;text-align:center;cursor:pointer;transition:all 0.2s;z-index:2;}
+.dep-node:hover{transform:scale(1.05);}
+.dep-node .dn-name{font-weight:500;color:var(--text-primary);margin-bottom:2px;}
+.dep-node .dn-domain{font-family:var(--font-mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;}
+.dep-node.source{border-width:2px;box-shadow:0 0 16px var(--accent-glow);}
+.dep-node.source .dn-name{color:var(--accent);}
+.dep-node.impact-high{border-color:var(--danger);}
+.dep-node.impact-med{border-color:var(--warn);}
+.dep-node.impact-low{border-color:var(--info);}
+.dep-node.impact-none{opacity:0.5;}
+.dep-legend{display:flex;gap:16px;padding:12px 20px;border-top:1px solid var(--border);flex-wrap:wrap;}
+.dl-item{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10px;color:var(--text-secondary);}
+.dl-line{width:20px;height:2px;border-radius:1px;}
+
+/* SVG dep map */
+#dep-svg{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1;}
+
+/* ===== STEP 5 — APPROVALS ===== */
+.approval-routing{display:flex;flex-direction:column;gap:12px;}
+.ar-card{background:var(--panel);border:1px solid var(--border);overflow:hidden;}
+.ar-header{padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg3);display:flex;align-items:center;gap:10px;}
+.ar-title{font-family:var(--font-display);font-size:14px;font-weight:600;letter-spacing:1px;}
+.ar-required{font-family:var(--font-mono);font-size:9px;padding:3px 9px;border-radius:20px;}
+.ar-required.mandatory{background:var(--danger-dim);color:var(--danger);}
+.ar-required.standard{background:var(--warn-dim);color:var(--warn);}
+.ar-required.auto{background:rgba(34,197,94,0.12);color:var(--success);}
+.ar-body{padding:14px 16px;}
+.ar-approvers{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+.approver-chip{display:flex;align-items:center;gap:7px;padding:6px 12px;background:var(--bg3);border:1px solid var(--border2);border-radius:20px;font-size:12px;}
+.approver-avatar{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0;}
+.approver-name{color:var(--text-primary);}
+.approver-role{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);}
+.ar-sla{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-top:8px;}
+.ar-sla span{color:var(--warn);}
+.ar-reason{font-size:12px;color:var(--text-secondary);margin-top:6px;line-height:1.5;padding:8px 10px;background:var(--bg3);border-left:2px solid var(--border2);}
+
+/* ===== STEP 6 — CONFIRMATION ===== */
+.confirm-panel{background:var(--panel);border:1px solid var(--border);overflow:hidden;}
+.confirm-success{text-align:center;padding:32px 20px;border-bottom:1px solid var(--border);}
+.confirm-icon{font-size:48px;margin-bottom:12px;animation:popIn 0.5s ease;}
+@keyframes popIn{0%{transform:scale(0.5);opacity:0;}70%{transform:scale(1.1);}100%{transform:scale(1);opacity:1;}}
+.confirm-title{font-family:var(--font-display);font-size:24px;font-weight:700;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:6px;}
+.confirm-sub{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);letter-spacing:1px;}
+.confirm-id{font-family:var(--font-mono);font-size:14px;color:var(--accent);margin-top:10px;}
+.confirm-details{padding:20px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+.cd-item{background:var(--bg3);border:1px solid var(--border);padding:12px 14px;}
+.cd-label{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:5px;}
+.cd-val{font-family:var(--font-display);font-size:15px;font-weight:600;color:var(--text-primary);}
+.confirm-timeline{padding:0 20px 20px;}
+.ct-title{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px;}
+.ct-row{display:flex;align-items:flex-start;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);}
+.ct-row:last-child{border-bottom:none;}
+.ct-dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0;}
+.ct-content{flex:1;}
+.ct-action{font-size:12px;color:var(--text-primary);}
+.ct-time{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin-top:2px;}
+
+/* Pipeline live preview */
+.pipeline-preview{background:var(--panel);border:1px solid var(--border);overflow:hidden;}
+.pp-new-card{margin:10px;padding:12px 14px;background:var(--bg3);border:1px solid var(--accent);border-left:3px solid var(--accent);animation:slideIn 0.5s ease;position:relative;overflow:hidden;}
+@keyframes slideIn{from{opacity:0;transform:translateX(-20px);}to{opacity:1;transform:translateX(0);}}
+.pp-new-card::after{content:'NEW';position:absolute;top:6px;right:8px;font-family:var(--font-mono);font-size:8px;color:var(--accent);letter-spacing:2px;}
+.pp-app{font-weight:500;font-size:13px;color:var(--text-primary);margin-bottom:3px;}
+.pp-ver{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+::-webkit-scrollbar-thumb:hover{background:var(--accent);}
+
+/* TOOLTIP */
+.tooltip{position:relative;}
+.tooltip:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--border2);color:var(--text-secondary);font-size:11px;padding:5px 10px;border-radius:3px;white-space:nowrap;z-index:10;font-family:var(--font-mono);}
+
+/* LOADING ANIMATION */
+.analyzing{display:flex;align-items:center;justify-content:center;padding:40px;flex-direction:column;gap:16px;}
+.analyze-spinner{width:48px;height:48px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.analyze-text{font-family:var(--font-mono);font-size:12px;color:var(--text-secondary);letter-spacing:1px;}
+
+/* PROGRESS TRACKER */
+.progress-tracker{background:var(--panel);border:1px solid var(--border);padding:12px 18px;display:flex;align-items:center;gap:12px;}
+.pt-label{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);}
+.pt-bar{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+.pt-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--info));border-radius:2px;transition:width 0.5s ease;}
+.pt-pct{font-family:var(--font-mono);font-size:11px;color:var(--accent);}
 </style>
 </head>
 <body>
 <div class="shell">
 
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
-    <div class="logo-area">
-      <div class="logo-mark">
-        <div class="logo-icon">
-          <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <polygon points="16,2 28,10 28,22 16,30 4,22 4,10" fill="none" stroke="#00e5b0" stroke-width="1.5"/>
-            <polygon points="16,8 22,12 22,20 16,24 10,20 10,12" fill="rgba(0,229,176,0.12)" stroke="#00e5b0" stroke-width="1"/>
-            <line x1="16" y1="2" x2="16" y2="8" stroke="#00e5b0" stroke-width="1.5"/>
-            <line x1="28" y1="10" x2="22" y2="12" stroke="#00e5b0" stroke-width="1.5"/>
-            <line x1="28" y1="22" x2="22" y2="20" stroke="#00e5b0" stroke-width="1.5"/>
-            <line x1="16" y1="30" x2="16" y2="24" stroke="#00e5b0" stroke-width="1.5"/>
-            <line x1="4" y1="22" x2="10" y2="20" stroke="#00e5b0" stroke-width="1.5"/>
-            <line x1="4" y1="10" x2="10" y2="12" stroke="#00e5b0" stroke-width="1.5"/>
-            <circle cx="16" cy="16" r="3" fill="#00e5b0"/>
-          </svg>
-        </div>
-        <span class="logo-name">GridFlow</span>
-      </div>
-      <div class="logo-sub">Release Ops Platform</div>
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo-area">
+    <div class="logo-mark">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+        <polygon points="16,2 28,10 28,22 16,30 4,22 4,10" fill="none" stroke="#00e5b0" stroke-width="1.5"/>
+        <polygon points="16,8 22,12 22,20 16,24 10,20 10,12" fill="rgba(0,229,176,0.12)" stroke="#00e5b0" stroke-width="1"/>
+        <circle cx="16" cy="16" r="3" fill="#00e5b0"/>
+      </svg>
+      <span class="logo-name">GridFlow</span>
     </div>
-
-    <nav class="nav">
-      <div class="nav-section">
-        <div class="nav-label">Operations</div>
-        <div class="nav-item active">
-          <span class="icon">⚡</span> Dashboard
-        </div>
-        <div class="nav-item">
-          <span class="icon">🚀</span> Releases
-          <span class="nav-badge">3</span>
-        </div>
-        <div class="nav-item">
-          <span class="icon">🔁</span> Pipelines
-        </div>
-        <div class="nav-item">
-          <span class="icon">📋</span> Approvals
-          <span class="nav-badge warn">5</span>
-        </div>
-        <div class="nav-item">
-          <span class="icon">↩️</span> Rollbacks
-          <span class="nav-badge">1</span>
-        </div>
-      </div>
-
-      <div class="nav-section">
-        <div class="nav-label">Domains</div>
-        <div class="nav-item">
-          <span class="icon">🔥</span> Generation
-        </div>
-        <div class="nav-item">
-          <span class="icon">🔌</span> Transmission
-        </div>
-        <div class="nav-item">
-          <span class="icon">🏘️</span> Distribution
-        </div>
-        <div class="nav-item">
-          <span class="icon">💳</span> Billing
-        </div>
-        <div class="nav-item">
-          <span class="icon">🎧</span> Customer Care
-        </div>
-      </div>
-
-      <div class="nav-section">
-        <div class="nav-label">Governance</div>
-        <div class="nav-item">
-          <span class="icon">🛡️</span> Compliance
-        </div>
-        <div class="nav-item">
-          <span class="icon">📊</span> Analytics
-        </div>
-        <div class="nav-item">
-          <span class="icon">🔗</span> Integrations
-        </div>
-        <div class="nav-item">
-          <span class="icon">⚙️</span> Settings
-        </div>
-      </div>
-    </nav>
-
-    <div class="domain-dots">
-      <div class="domain-label">Domain Health</div>
-      <div class="domain-dot"><div class="dot gen"></div> Generation &nbsp;<span style="margin-left:auto;font-family:var(--font-mono);font-size:10px;color:#f59e0b">98.2%</span></div>
-      <div class="domain-dot"><div class="dot tx"></div> Transmission &nbsp;<span style="margin-left:auto;font-family:var(--font-mono);font-size:10px;color:#38bdf8">99.1%</span></div>
-      <div class="domain-dot"><div class="dot dx"></div> Distribution &nbsp;<span style="margin-left:auto;font-family:var(--font-mono);font-size:10px;color:#a78bfa">97.4%</span></div>
-      <div class="domain-dot"><div class="dot billing"></div> Billing &nbsp;<span style="margin-left:auto;font-family:var(--font-mono);font-size:10px;color:#fb7185">96.8%</span></div>
-      <div class="domain-dot"><div class="dot cx"></div> Customer &nbsp;<span style="margin-left:auto;font-family:var(--font-mono);font-size:10px;color:#00e5b0">99.5%</span></div>
-    </div>
-  </aside>
-
-  <!-- MAIN -->
-  <div class="main">
-    <div class="topbar">
-      <span class="topbar-title">Release Dashboard</span>
-      <span class="topbar-env">PROD — Q2 2026</span>
-      <div class="topbar-sep"></div>
-      <span class="topbar-clock" id="clock">--:--:-- UTC</span>
-      <button class="topbar-btn">+ New Release</button>
-    </div>
-
-    <div class="power-line"></div>
-
-    <div class="content">
-
-      <!-- STAT CARDS -->
-      <div class="stat-row">
-        <div class="stat-card gen">
-          <div class="stat-domain">Generation</div>
-          <div class="stat-num">14</div>
-          <div class="stat-label">Apps in Portfolio</div>
-          <div class="stat-sub"><span class="stat-warn">▲ 2</span> releases pending</div>
-        </div>
-        <div class="stat-card tx">
-          <div class="stat-domain">Transmission</div>
-          <div class="stat-num">9</div>
-          <div class="stat-label">Apps in Portfolio</div>
-          <div class="stat-sub"><span class="stat-up">✓ 1</span> deployed today</div>
-        </div>
-        <div class="stat-card dx">
-          <div class="stat-domain">Distribution</div>
-          <div class="stat-num">22</div>
-          <div class="stat-label">Apps in Portfolio</div>
-          <div class="stat-sub"><span class="stat-err">✗ 1</span> failed deploy</div>
-        </div>
-        <div class="stat-card billing">
-          <div class="stat-domain">Billing</div>
-          <div class="stat-num">11</div>
-          <div class="stat-label">Apps in Portfolio</div>
-          <div class="stat-sub"><span class="stat-up">→ 3</span> in staging</div>
-        </div>
-        <div class="stat-card cx">
-          <div class="stat-domain">Customer Care</div>
-          <div class="stat-num">16</div>
-          <div class="stat-label">Apps in Portfolio</div>
-          <div class="stat-sub"><span class="stat-up">✓ 2</span> deployed today</div>
-        </div>
-      </div>
-
-      <!-- COMPLIANCE BAR -->
-      <div class="compliance-bar">
-        <div class="comp-label">Compliance</div>
-        <div class="comp-items">
-          <div class="comp-item"><span class="comp-check ok">✓</span><span class="comp-name">NERC CIP</span></div>
-          <div class="comp-item"><span class="comp-check ok">✓</span><span class="comp-name">SOX</span></div>
-          <div class="comp-item"><span class="comp-check ok">✓</span><span class="comp-name">ISO 55000</span></div>
-          <div class="comp-item"><span class="comp-check warn">⚠</span><span class="comp-name">IEC 62351</span></div>
-          <div class="comp-item"><span class="comp-check ok">✓</span><span class="comp-name">FERC Order 887</span></div>
-          <div class="comp-item"><span class="comp-check ok">✓</span><span class="comp-name">GDPR / PII</span></div>
-          <div class="comp-item"><span class="comp-check fail">✗</span><span class="comp-name">Change Freeze</span></div>
-        </div>
-        <div style="font-family:var(--font-mono);font-size:10px;color:var(--warn);">⚠ Freeze window: Sat 00:00–06:00 UTC</div>
-      </div>
-
-      <!-- PIPELINE FLOW -->
-      <div class="pipeline-section">
-        <div class="section-header">
-          <span class="section-title">Release Pipeline</span>
-          <span class="section-meta">Active sprints · Q2.W3</span>
-          <div class="section-sep"></div>
-          <span class="filter-pill active">All</span>
-          <span class="filter-pill">Critical</span>
-          <span class="filter-pill">OT/IT</span>
-        </div>
-        <div class="pipeline-flow">
-          <!-- BACKLOG -->
-          <div class="pipeline-stage">
-            <div class="stage-header">
-              <div class="stage-name">Backlog</div>
-              <div class="stage-count">12</div>
-            </div>
-            <div class="stage-card gen-c">
-              <div class="card-app">EMS Core</div>
-              <div class="card-ver">v4.2.1 → v4.3.0</div>
-              <div class="card-meta"><div class="status-dot wait"></div><span class="card-status-text">SCOPING</span></div>
-            </div>
-            <div class="stage-card billing-c">
-              <div class="card-app">MDM Portal</div>
-              <div class="card-ver">v2.7.0 → v2.8.0</div>
-              <div class="card-meta"><div class="status-dot wait"></div><span class="card-status-text">ESTIMATED</span></div>
-            </div>
-            <div class="stage-card cx-c">
-              <div class="card-app">CIS Self-Serve</div>
-              <div class="card-ver">v5.1.0 → v5.2.0</div>
-              <div class="card-meta"><div class="status-dot wait"></div><span class="card-status-text">QUEUED</span></div>
-            </div>
-          </div>
-
-          <!-- DEV -->
-          <div class="pipeline-stage">
-            <div class="stage-header">
-              <div class="stage-name">Dev / Build</div>
-              <div class="stage-count">7</div>
-            </div>
-            <div class="stage-card tx-c">
-              <div class="card-app">SCADA Gateway</div>
-              <div class="card-ver">v3.1.2 → v3.2.0</div>
-              <div class="card-meta"><div class="status-dot run"></div><span class="card-status-text">BUILDING</span></div>
-            </div>
-            <div class="stage-card dx-c">
-              <div class="card-app">OMS Field App</div>
-              <div class="card-ver">v6.0.1 → v6.1.0</div>
-              <div class="card-meta"><div class="status-dot run"></div><span class="card-status-text">CI RUNNING</span></div>
-            </div>
-            <div class="stage-card gen-c">
-              <div class="card-app">Plant PI Historian</div>
-              <div class="card-ver">v1.9.0 → v2.0.0</div>
-              <div class="card-meta"><div class="status-dot pass"></div><span class="card-status-text">BUILD PASS</span></div>
-            </div>
-          </div>
-
-          <!-- QA / TEST -->
-          <div class="pipeline-stage">
-            <div class="stage-header">
-              <div class="stage-name">QA / Test</div>
-              <div class="stage-count">5</div>
-            </div>
-            <div class="stage-card billing-c">
-              <div class="card-app">Billing Engine</div>
-              <div class="card-ver">v8.3.0 → v8.4.0</div>
-              <div class="card-meta"><div class="status-dot run"></div><span class="card-status-text">REGRESSION</span></div>
-            </div>
-            <div class="stage-card cx-c">
-              <div class="card-app">IVR / Telephony</div>
-              <div class="card-ver">v2.4.1 → v2.5.0</div>
-              <div class="card-meta"><div class="status-dot pass"></div><span class="card-status-text">UAT PASS</span></div>
-            </div>
-            <div class="stage-card dx-c">
-              <div class="card-app">AMI Head-End</div>
-              <div class="card-ver">v5.2.3 → v5.3.0</div>
-              <div class="card-meta"><div class="status-dot fail"></div><span class="card-status-text">TEST FAIL</span></div>
-            </div>
-          </div>
-
-          <!-- STAGING -->
-          <div class="pipeline-stage">
-            <div class="stage-header">
-              <div class="stage-name">Staging</div>
-              <div class="stage-count">4</div>
-            </div>
-            <div class="stage-card gen-c">
-              <div class="card-app">DCS Interface</div>
-              <div class="card-ver">v3.0.0 → v3.0.1</div>
-              <div class="card-meta"><div class="status-dot pass"></div><span class="card-status-text">READY</span></div>
-            </div>
-            <div class="stage-card tx-c">
-              <div class="card-app">EMS Alarms</div>
-              <div class="card-ver">v2.2.0 → v2.3.0</div>
-              <div class="card-meta"><div class="status-dot pass"></div><span class="card-status-text">APPROVED</span></div>
-            </div>
-          </div>
-
-          <!-- PROD DEPLOY -->
-          <div class="pipeline-stage">
-            <div class="stage-header">
-              <div class="stage-name">Production</div>
-              <div class="stage-count">3</div>
-            </div>
-            <div class="stage-card cx-c">
-              <div class="card-app">CRM Integration</div>
-              <div class="card-ver">v4.1.0 → v4.2.0</div>
-              <div class="card-meta"><div class="status-dot run"></div><span class="card-status-text">DEPLOYING 72%</span></div>
-            </div>
-            <div class="stage-card billing-c">
-              <div class="card-app">Rate Engine API</div>
-              <div class="card-ver">v1.5.2 → v1.6.0</div>
-              <div class="card-meta"><div class="status-dot pass"></div><span class="card-status-text">LIVE</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- RELEASE TABLE -->
-      <div class="release-section">
-        <div class="section-header">
-          <span class="section-title">All Active Releases</span>
-          <span class="section-meta">72 total · 18 active</span>
-          <div class="section-sep"></div>
-          <span class="filter-pill active">This Week</span>
-          <span class="filter-pill">Month</span>
-          <span class="filter-pill">Quarter</span>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Application</th>
-                <th>Domain</th>
-                <th>Type</th>
-                <th>Version</th>
-                <th>Environment</th>
-                <th>Owner</th>
-                <th>Status</th>
-                <th>Progress</th>
-                <th>Compliance</th>
-                <th>Scheduled</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td class="td-app">EMS Core v4.3.0</td>
-                <td><span class="domain-tag gen">GEN</span></td>
-                <td style="color:var(--text-muted);font-family:var(--font-mono);font-size:10px;">OT/SCADA</td>
-                <td class="td-ver">v4.2.1 → v4.3.0</td>
-                <td style="font-family:var(--font-mono);font-size:10px;">PROD-WEST</td>
-                <td>R. Patel</td>
-                <td><span class="status-badge review">● REVIEW</span></td>
-                <td><div class="progress-bar"><div class="progress-fill" style="width:35%"></div></div></td>
-                <td style="color:var(--success);font-family:var(--font-mono);font-size:10px;">NERC ✓</td>
-                <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">Apr 27</td>
-              </tr>
-              <tr>
-                <td class="td-app">SCADA Gateway</td>
-                <td><span class="domain-tag tx">TX</span></td>
-                <td style="color:var(--text-muted);font-family:var(--font-mono);font-size:10px;">OT</td>
-                <td class="td-ver">v3.1.2 → v3.2.0</td>
-                <td style="font-family:var(--font-mono);font-size:10px;">PROD-CTRL</td>
-                <td>M. Singh</td>
-                <td><span class="status-badge deploying">⏳ DEPLOYING</span></td>
-                <td><div class="progress-bar"><div class="progress-fill active" style="width:72%"></div></div></td>
-                <td style="color:var(--warn);font-family:var(--font-mono);font-size:10px;">IEC ⚠</td>
-                <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">TODAY</td>
-              </tr>
-              <tr>
-                <td class="td-app">AMI Head-End Sys</td>
-                <td><span class="domain-tag dx">DIST</span></td>
-                <td style="color:var(--text-muted);font-family:var(--font-mono);font-size:10px;">IT/OT</td>
-                <td class="td-ver">v5.2.3 → v5.3.0</td>
-                <td style="font-family:var(--font-mono);font-size:10px;">STAGING</td>
-                <td>K. Wu</td>
-                <td><span class="status-badge failed">✗ FAILED</span></td>
-                <td><div class="progress-bar"><div class="progress-fill" style="width:60%;background:var(--danger)"></div></div></td>
-                <td style="color:var(--danger);font-family:var(--font-mono);font-size:10px;">BLOCKED</td>
-                <td style="font-family:var(--font-mono);font-size:10px;color:var(--danger)">HOLD</td>
-              </tr>
-              <tr>
-                <td class="td-app">Billing Engine</td>
-                <td><span class="domain-tag billing">BILL</span></td>
-                <td style="color:var(--text-muted);font-family:var(--font-mono);font-size:10px;">IT</td>
-                <td class="td-ver">v8.3.0 → v8.4.0</td>
-                <td style="font-family:var(--font-mono);font-size:10px;">PROD-EAST</td>
-                <td>A. Torres</td>
-                <td><span class="status-badge scheduled">📅 SCHEDULED</span></td>
-                <td><div class="progress-bar"><div class="progress-fill" style="width:85%"></div></div></td>
-                <td style="color:var(--success);font-family:var(--font-mono);font-size:10px;">SOX ✓</td>
-                <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">Apr 25</td>
-              </tr>
-              <tr>
-                <td class="td-app">CRM Integration</td>
-                <td><span class="domain-tag cx">CX</span></td>
-                <td style="color:var(--text-muted);font-family:var(--font-mono);font-size:10px;">IT/SaaS</td>
-                <td class="td-ver">v4.1.0 → v4.2.0</td>
-                <td style="font-family:var(--font-mono);font-size:10px;">PROD</td>
-                <td>J. Chen</td>
-                <td><span class="status-badge deploying">⏳ DEPLOYING</span></td>
-                <td><div class="progress-bar"><div class="progress-fill active" style="width:72%"></div></div></td>
-                <td style="color:var(--success);font-family:var(--font-mono);font-size:10px;">GDPR ✓</td>
-                <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">NOW</td>
-              </tr>
-              <tr>
-                <td class="td-app">Rate Engine API</td>
-                <td><span class="domain-tag billing">BILL</span></td>
-                <td style="color:var(--text-muted);font-family:var(--font-mono);font-size:10px;">IT</td>
-                <td class="td-ver">v1.5.2 → v1.6.0</td>
-                <td style="font-family:var(--font-mono);font-size:10px;">PROD</td>
-                <td>S. Lee</td>
-                <td><span class="status-badge deployed">✓ LIVE</span></td>
-                <td><div class="progress-bar"><div class="progress-fill" style="width:100%;background:var(--success)"></div></div></td>
-                <td style="color:var(--success);font-family:var(--font-mono);font-size:10px;">FERC ✓</td>
-                <td style="font-family:var(--font-mono);font-size:10px;color:var(--success)">DONE</td>
-              </tr>
-              <tr>
-                <td class="td-app">DMS Field Crew App</td>
-                <td><span class="domain-tag dx">DIST</span></td>
-                <td style="color:var(--text-muted);font-family:var(--font-mono);font-size:10px;">IT/Mobile</td>
-                <td class="td-ver">v6.0.1 → v6.1.0</td>
-                <td style="font-family:var(--font-mono);font-size:10px;">PROD-MOBILE</td>
-                <td>D. Brown</td>
-                <td><span class="status-badge review">● REVIEW</span></td>
-                <td><div class="progress-bar"><div class="progress-fill" style="width:50%"></div></div></td>
-                <td style="color:var(--success);font-family:var(--font-mono);font-size:10px;">ISO ✓</td>
-                <td style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">Apr 30</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- INTEGRATIONS + BOTTOM -->
-      <div class="integrations-grid">
-        <!-- Generation -->
-        <div class="integration-card">
-          <div class="int-header">
-            <div class="int-icon" style="background:rgba(245,158,11,0.15)">🔥</div>
-            <div class="int-title" style="color:#f59e0b">Generation Apps</div>
-            <div class="int-count">14 apps · 6 integrations</div>
-          </div>
-          <div class="int-body">
-            <div class="int-row">
-              <div class="status-dot pass"></div>
-              <div class="int-app-name">EMS / SCADA Core</div>
-              <div class="int-version">v4.2.1</div>
-              <div class="int-health"><div class="int-health-fill" style="width:98%;background:#f59e0b"></div></div>
-            </div>
-            <div class="int-row">
-              <div class="status-dot pass"></div>
-              <div class="int-app-name">PI Historian (OSIsoft)</div>
-              <div class="int-version">v2.0.0</div>
-              <div class="int-health"><div class="int-health-fill" style="width:100%;background:#22c55e"></div></div>
-            </div>
-            <div class="int-row">
-              <div class="status-dot run"></div>
-              <div class="int-app-name">DCS Interface Layer</div>
-              <div class="int-version">v3.0.1</div>
-              <div class="int-health"><div class="int-health-fill" style="width:82%;background:#f59e0b"></div></div>
-            </div>
-            <div class="int-row">
-              <div class="status-dot pass"></div>
-              <div class="int-app-name">Plant CMMS (SAP PM)</div>
-              <div class="int-version">v7.4.2</div>
-              <div class="int-health"><div class="int-health-fill" style="width:95%;background:#22c55e"></div></div>
-            </div>
-            <div class="int-row">
-              <div class="status-dot pass"></div>
-              <div class="int-app-name">Environmental Reporting</div>
-              <div class="int-version">v1.3.0</div>
-              <div class="int-health"><div class="int-health-fill" style="width:91%;background:#22c55e"></div></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Transmission -->
-        <div class="integration-card">
-          <div class="int-header">
-            <div class="int-icon" style="background:rgba(56,189,248,0.15)">🔌</div>
-            <div class="int-title" style="color:#38bdf8">Transmission Apps</div>
-            <div class="int-count">9 apps · 5 integrations</div>
-          </div>
-          <div class="int-body">
-            <div class="int-row">
-              <div class="status-dot run"></div>
-              <div class="int-app-name">SCADA / EMS Platform</div>
-              <div class="int-version">v3.2.0</div>
-              <div class="int-health"><div class="int-health-fill" style="width:99%;background:#38bdf8"></div></div>
-            </div>
-            <div class="int-row">
-              <div class="status-dot pass"></div>
-              <div class="int-app-name">Network Model Mgr</div>
-              <div class="int-version">v5.1.0</div>
-              <div class="int-health"><div class="int-health-fill" style="width:97%;background:#22c55e"></div></div>
-            </div>
-            <div class="int-row">
-              <div class="status-dot pass"></div>
-              <div class="int-app-name">WAMS / PMU Analytics</div>
-              <div class="int-version">v2.2.1</div>
-              <div class="int-health"><div class="int-health-fill" style="width:100%;background:#22c55e"></div></div>
-            </div>
-            <div class="int-row">
-              <div class="status-dot pass"></div>
-              <div class="int-app-name">GIS Transmission Assets</div>
-              <div class="int-version">v4.0.0</div>
-              <div class="int-health"><div class="int-health-fill" style="width:96%;background:#22c55e"></div></div>
-            </div>
-            <div class="int-row">
-              <div class="status-dot pass"></div>
-              <div class="int-app-name">Energy Market Interface</div>
-              <div class="int-version">v1.8.3</div>
-              <div class="int-health"><div class="int-health-fill" style="width:99%;background:#22c55e"></div></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Distribution -->
-        <div class="integration-card">
-          <div class="int-header">
-            <div class="int-icon" style="background:rgba(167,139,250,0.15)">🏘️</div>
-            <div class="int-title" style="color:#a78bfa">Distribution Apps</div>
-            <div class="int-count">22 apps · 11 integrations</div>
-          </div>
-          <div class="int-body">
-            <div class="int-row">
-              <div class="status-dot fail"></div>
-              <div class="int-app-name">AMI Head-End System</div>
-              <div class="int-version">v5.2.3</div>
-              <div class="int-health"><div class="int-health-fill" style="width:61%;background:#ef4444"></div></div>
-            </div>
-            <div class="int-row">
-              <div class="status-dot pass"></div>
-              <div class="int-app-name">OMS (Outage Mgmt)</div>
-              <div class="int-version">v6.1.0</div>
-              <div class="int-health"><div class="int-health-fill" style="width:97%;background:#22c55e"></div></div>
-            </div>
-            <div class="int-row">
-              <div class="status-dot pass"></div>
-              <div class="int-app-name">DMS (Distribution Mgmt)</div>
-              <div class="int-version">v3.4.1</div>
-              <div class="int-health"><div class="int-health-fill" style="width:98%;background:#22c55e"></div></div>
-            </div>
-            <div class="int-row">
-              <div class="status-dot pass"></div>
-              <div class="int-app-name">GIS Distribution Layer</div>
-              <div class="int-version">v8.2.0</div>
-              <div class="int-health"><div class="int-health-fill" style="width:100%;background:#22c55e"></div></div>
-            </div>
-            <div class="int-row">
-              <div class="status-dot pass"></div>
-              <div class="int-app-name">Mobile Field Workforce</div>
-              <div class="int-version">v6.0.1</div>
-              <div class="int-health"><div class="int-health-fill" style="width:94%;background:#a78bfa"></div></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Billing + CX -->
-        <div class="integration-card">
-          <div class="int-header">
-            <div class="int-icon" style="background:rgba(251,113,133,0.15)">💳</div>
-            <div class="int-title" style="color:#fb7185">Billing & Customer Care</div>
-            <div class="int-count">27 apps · 14 integrations</div>
-          </div>
-          <div class="int-body">
-            <div class="int-row">
-              <div class="status-dot run"></div>
-              <div class="int-app-name">Billing Engine (CC&B)</div>
-              <div class="int-version">v8.3.0</div>
-              <div class="int-health"><div class="int-health-fill" style="width:88%;background:#fb7185"></div></div>
-            </div>
-            <div class="int-row">
-              <div class="status-dot pass"></div>
-              <div class="int-app-name">CIS / Customer Portal</div>
-              <div class="int-version">v5.2.0</div>
-              <div class="int-health"><div class="int-health-fill" style="width:99%;background:#22c55e"></div></div>
-            </div>
-            <div class="int-row">
-              <div class="status-dot run"></div>
-              <div class="int-app-name">CRM (Salesforce Utility)</div>
-              <div class="int-version">v4.2.0</div>
-              <div class="int-health"><div class="int-health-fill" style="width:72%;background:#f59e0b"></div></div>
-            </div>
-            <div class="int-row">
-              <div class="status-dot pass"></div>
-              <div class="int-app-name">Payment Gateway</div>
-              <div class="int-version">v3.1.0</div>
-              <div class="int-health"><div class="int-health-fill" style="width:100%;background:#22c55e"></div></div>
-            </div>
-            <div class="int-row">
-              <div class="status-dot pass"></div>
-              <div class="int-app-name">IVR / Contact Center</div>
-              <div class="int-version">v2.5.0</div>
-              <div class="int-health"><div class="int-health-fill" style="width:96%;background:#00e5b0"></div></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- BOTTOM ROW -->
-      <div class="bottom-row">
-        <!-- Activity Feed -->
-        <div class="activity-feed">
-          <div class="section-header">
-            <span class="section-title">Audit Log</span>
-            <span class="section-meta">Live feed</span>
-            <div class="section-sep"></div>
-            <span class="filter-pill active">All Events</span>
-          </div>
-          <div class="feed-body">
-            <div class="feed-item">
-              <div class="feed-dot" style="background:var(--warn)"></div>
-              <div class="feed-content">
-                <div class="feed-text"><strong>AMI Head-End v5.3.0</strong> — Test suite failed. 3 of 47 regression tests failed in staging. Deploy blocked.</div>
-                <div class="feed-time">2 min ago · K. Wu · DISTRIBUTION</div>
-              </div>
-            </div>
-            <div class="feed-item">
-              <div class="feed-dot" style="background:var(--success)"></div>
-              <div class="feed-content">
-                <div class="feed-text"><strong>Rate Engine API v1.6.0</strong> — Successfully deployed to PROD. Zero downtime cutover completed.</div>
-                <div class="feed-time">18 min ago · S. Lee · BILLING</div>
-              </div>
-            </div>
-            <div class="feed-item">
-              <div class="feed-dot" style="background:var(--accent)"></div>
-              <div class="feed-content">
-                <div class="feed-text"><strong>CRM Integration v4.2.0</strong> — Blue/green deploy initiated. 72% traffic shifted to new version.</div>
-                <div class="feed-time">31 min ago · J. Chen · CUSTOMER CARE</div>
-              </div>
-            </div>
-            <div class="feed-item">
-              <div class="feed-dot" style="background:var(--info)"></div>
-              <div class="feed-content">
-                <div class="feed-text"><strong>SCADA Gateway v3.2.0</strong> — NERC CIP security scan passed. Change advisory board approval received.</div>
-                <div class="feed-time">1 hr ago · M. Singh · TRANSMISSION</div>
-              </div>
-            </div>
-            <div class="feed-item">
-              <div class="feed-dot" style="background:var(--danger)"></div>
-              <div class="feed-content">
-                <div class="feed-text"><strong>EMS Core v4.3.0</strong> — Rollback candidate flagged. Memory leak detected in load test. CAB review required.</div>
-                <div class="feed-time">2 hr ago · R. Patel · GENERATION</div>
-              </div>
-            </div>
-            <div class="feed-item">
-              <div class="feed-dot" style="background:var(--success)"></div>
-              <div class="feed-content">
-                <div class="feed-text"><strong>IVR / Contact Center v2.5.0</strong> — UAT sign-off received from Customer Operations. Queued for prod deploy.</div>
-                <div class="feed-time">3 hr ago · L. Garcia · CUSTOMER CARE</div>
-              </div>
-            </div>
-            <div class="feed-item">
-              <div class="feed-dot" style="background:var(--warn)"></div>
-              <div class="feed-content">
-                <div class="feed-text"><strong>Billing Engine v8.4.0</strong> — Regression suite 85% complete. SOX controls checklist pending finance sign-off.</div>
-                <div class="feed-time">4 hr ago · A. Torres · BILLING</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Approval Queue -->
-        <div class="approval-panel">
-          <div class="section-header">
-            <span class="section-title">Approval Queue</span>
-            <span class="section-meta" style="color:var(--warn)">5 pending</span>
-          </div>
-          <div class="approval-item">
-            <div class="appr-app">SCADA Gateway v3.2.0</div>
-            <div class="appr-meta">TX · OT · PROD-CTRL · M. Singh · NERC CIP critical path</div>
-            <div class="appr-actions">
-              <button class="btn-approve">✓ Approve</button>
-              <button class="btn-reject">✗ Reject</button>
-            </div>
-          </div>
-          <div class="approval-item">
-            <div class="appr-app">Billing Engine v8.4.0</div>
-            <div class="appr-meta">BILLING · IT · PROD-EAST · A. Torres · SOX sign-off</div>
-            <div class="appr-actions">
-              <button class="btn-approve">✓ Approve</button>
-              <button class="btn-reject">✗ Reject</button>
-            </div>
-          </div>
-          <div class="approval-item">
-            <div class="appr-app">EMS Core v4.3.0</div>
-            <div class="appr-meta">GEN · OT/SCADA · PROD-WEST · R. Patel · CAB required</div>
-            <div class="appr-actions">
-              <button class="btn-approve">✓ Approve</button>
-              <button class="btn-reject">✗ Reject</button>
-            </div>
-          </div>
-          <div class="approval-item">
-            <div class="appr-app">DMS Field Crew App</div>
-            <div class="appr-meta">DIST · IT/Mobile · PROD-MOBILE · D. Brown</div>
-            <div class="appr-actions">
-              <button class="btn-approve">✓ Approve</button>
-              <button class="btn-reject">✗ Reject</button>
-            </div>
-          </div>
-          <div class="approval-item">
-            <div class="appr-app">GIS Dist. Layer v8.3.0</div>
-            <div class="appr-meta">DIST · IT/GIS · PROD · F. Okafor</div>
-            <div class="appr-actions">
-              <button class="btn-approve">✓ Approve</button>
-              <button class="btn-reject">✗ Reject</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-    </div>
+    <div class="logo-sub">Release Ops Platform</div>
   </div>
-</div>
+  <nav class="nav">
+    <div class="nav-section">
+      <div class="nav-label">Operations</div>
+      <div class="nav-item">⚡ Dashboard</div>
+      <div class="nav-item active">🚀 New Release</div>
+      <div class="nav-item">🔁 Pipelines</div>
+      <div class="nav-item">📋 Approvals <span class="nav-badge warn">5</span></div>
+      <div class="nav-item">↩️ Rollbacks <span class="nav-badge">1</span></div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Domains</div>
+      <div class="nav-item">🔥 Generation</div>
+      <div class="nav-item">🔌 Transmission</div>
+      <div class="nav-item">🏘️ Distribution</div>
+      <div class="nav-item">💳 Billing</div>
+      <div class="nav-item">🎧 Customer Care</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Governance</div>
+      <div class="nav-item">🛡️ Compliance</div>
+      <div class="nav-item">📊 Analytics</div>
+      <div class="nav-item">🔗 Integrations</div>
+    </div>
+  </nav>
+  <div class="domain-health">
+    <div class="dh-label">Domain Health</div>
+    <div class="dh-row"><div class="dh-dot" style="background:#f59e0b;box-shadow:0 0 5px #f59e0b80"></div>Generation <span style="margin-left:auto;font-family:var(--font-mono);font-size:10px;color:#f59e0b">98.2%</span></div>
+    <div class="dh-row"><div class="dh-dot" style="background:#38bdf8;box-shadow:0 0 5px #38bdf880"></div>Transmission <span style="margin-left:auto;font-family:var(--font-mono);font-size:10px;color:#38bdf8">99.1%</span></div>
+    <div class="dh-row"><div class="dh-dot" style="background:#a78bfa;box-shadow:0 0 5px #a78bfa80"></div>Distribution <span style="margin-left:auto;font-family:var(--font-mono);font-size:10px;color:#a78bfa">97.4%</span></div>
+    <div class="dh-row"><div class="dh-dot" style="background:#fb7185;box-shadow:0 0 5px #fb718580"></div>Billing <span style="margin-left:auto;font-family:var(--font-mono);font-size:10px;color:#fb7185">96.8%</span></div>
+    <div class="dh-row"><div class="dh-dot" style="background:#00e5b0;box-shadow:0 0 5px #00e5b080"></div>Customer <span style="margin-left:auto;font-family:var(--font-mono);font-size:10px;color:#00e5b0">99.5%</span></div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <span class="topbar-title">Create New Release</span>
+    <span class="topbar-env">PROD — Q2 2026</span>
+    <div class="topbar-sep"></div>
+    <span class="topbar-clock" id="clock">--:--:-- UTC</span>
+    <button class="topbar-btn" onclick="resetWizard()">↩ Reset</button>
+  </div>
+  <div class="power-line"></div>
+
+  <div class="content">
+
+    <!-- WIZARD STEPS -->
+    <div class="wizard-steps" id="wizard-steps">
+      <div class="wstep active" id="ws1">
+        <div class="wstep-num">1</div>
+        <div class="wstep-info"><div class="wstep-label">Step 1</div><div class="wstep-name">Define Release</div></div>
+      </div>
+      <div class="wstep" id="ws2">
+        <div class="wstep-num">2</div>
+        <div class="wstep-info"><div class="wstep-label">Step 2</div><div class="wstep-name">Impact Analysis</div></div>
+      </div>
+      <div class="wstep" id="ws3">
+        <div class="wstep-num">3</div>
+        <div class="wstep-info"><div class="wstep-label">Step 3</div><div class="wstep-name">Risk Scoring</div></div>
+      </div>
+      <div class="wstep" id="ws4">
+        <div class="wstep-num">4</div>
+        <div class="wstep-info"><div class="wstep-label">Step 4</div><div class="wstep-name">Dependency Map</div></div>
+      </div>
+      <div class="wstep" id="ws5">
+        <div class="wstep-num">5</div>
+        <div class="wstep-info"><div class="wstep-label">Step 5</div><div class="wstep-name">Approval Routing</div></div>
+      </div>
+      <div class="wstep" id="ws6">
+        <div class="wstep-num">✓</div>
+        <div class="wstep-info"><div class="wstep-label">Step 6</div><div class="wstep-name">Submit to Pipeline</div></div>
+      </div>
+    </div>
+
+    <!-- PROGRESS BAR -->
+    <div class="progress-tracker">
+      <span class="pt-label">Completion</span>
+      <div class="pt-bar"><div class="pt-fill" id="prog-fill" style="width:0%"></div></div>
+      <span class="pt-pct" id="prog-pct">0%</span>
+    </div>
+
+    <!-- ===== STEP 1: DEFINE RELEASE ===== -->
+    <div class="step-panel active" id="step1">
+      <div class="form-card">
+        <div class="form-header">
+          <span style="font-size:18px">🚀</span>
+          <div>
+            <div class="form-title">Define Release</div>
+            <div class="form-subtitle">Select domain, app, version and release metadata</div>
+          </div>
+        </div>
+        <div class="form-body">
+
+          <!-- DOMAIN SELECTOR -->
+          <div class="form-group full" style="margin-bottom:18px;">
+            <div class="form-label">Select Domain</div>
+            <div class="domain-selector">
+              <div class="domain-card gen" onclick="selectDomain('gen',this)">
+                <div class="domain-icon">🔥</div>
+                <div class="domain-name">Generation</div>
+                <div class="domain-count">14 apps</div>
+              </div>
+              <div class="domain-card tx" onclick="selectDomain('tx',this)">
+                <div class="domain-icon">🔌</div>
+                <div class="domain-name">Transmission</div>
+                <div class="domain-count">9 apps</div>
+              </div>
+              <div class="domain-card dx" onclick="selectDomain('dx',this)">
+                <div class="domain-icon">🏘️</div>
+                <div class="domain-name">Distribution</div>
+                <div class="domain-count">22 apps</div>
+              </div>
+              <div class="domain-card bill" onclick="selectDomain('bill',this)">
+                <div class="domain-icon">💳</div>
+                <div class="domain-name">Billing</div>
+                <div class="domain-count">11 apps</div>
+              </div>
+              <div class="domain-card cx" onclick="selectDomain('cx',this)">
+                <div class="domain-icon">🎧</div>
+                <div class="domain-name">Customer Care</div>
+                <div class="domain-count">16 apps</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- APP + VERSION -->
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Application / Integration</label>
+              <select class="form-select" id="sel-app">
+                <option value="">— Select Domain First —</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Release Type</label>
+              <select class="form-select" id="sel-type">
+                <option value="it">IT System</option>
+                <option value="ot">OT / SCADA (Critical)</option>
+                <option value="saas">SaaS Integration</option>
+                <option value="api">API / Microservice</option>
+                <option value="mobile">Mobile Application</option>
+                <option value="infra">Infrastructure</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Current Version (From)</label>
+              <input class="form-input" id="ver-from" type="text" placeholder="e.g. v4.2.1">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Target Version (To)</label>
+              <input class="form-input" id="ver-to" type="text" placeholder="e.g. v4.3.0">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Target Environment</label>
+              <select class="form-select" id="sel-env">
+                <option value="dev">DEV</option>
+                <option value="staging">STAGING</option>
+                <option value="prod">PRODUCTION</option>
+                <option value="prod-ot">PRODUCTION — OT NETWORK</option>
+                <option value="dr">DR / FAILOVER</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Scheduled Date</label>
+              <input class="form-input" id="sched-date" type="date">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Release Owner</label>
+              <input class="form-input" id="owner" type="text" placeholder="e.g. R. Patel">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Priority</label>
+              <select class="form-select" id="sel-priority">
+                <option value="normal">Normal</option>
+                <option value="high">High</option>
+                <option value="critical">Critical / Emergency</option>
+                <option value="low">Low / Planned</option>
+              </select>
+            </div>
+            <div class="form-group full">
+              <label class="form-label">Release Description / Change Summary</label>
+              <textarea class="form-textarea" id="desc" placeholder="Describe what this release changes, fixes, or introduces..."></textarea>
+            </div>
+            <div class="form-group full">
+              <label class="form-label">Change Type</label>
+              <div class="type-pills" id="change-type-pills">
+                <div class="type-pill selected" onclick="togglePill(this)">Bug Fix</div>
+                <div class="type-pill" onclick="togglePill(this)">Feature Release</div>
+                <div class="type-pill" onclick="togglePill(this)">Security Patch</div>
+                <div class="type-pill" onclick="togglePill(this)">Configuration Change</div>
+                <div class="type-pill" onclick="togglePill(this)">Database Migration</div>
+                <div class="type-pill" onclick="togglePill(this)">Integration Update</div>
+                <div class="type-pill" onclick="togglePill(this)">Compliance Update</div>
+                <div class="type-pill" onclick="togglePill(this)">Emergency Hotfix</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn-primary" onclick="goToStep(2)">Analyze Impact →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== STEP 2: IMPACT ANALYSIS ===== -->
+    <div class="step-panel" id="step2">
+      <div id="impact-loading" class="form-card">
+        <div class="analyzing">
+          <div class="analyze-spinner"></div>
+          <div class="analyze-text">SCANNING INTEGRATION DEPENDENCIES...</div>
+        </div>
+      </div>
+      <div id="impact-results" style="display:none;display:flex;flex-direction:column;gap:14px;">
+        <div class="release-summary-bar" id="rsb"></div>
+        <div style="background:var(--panel);border:1px solid var(--border);padding:14px 18px;">
+          <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Impact Summary</div>
+          <div id="impact-summary-text" style="font-size:13px;color:var(--text-secondary);line-height:1.6;"></div>
+        </div>
+        <div class="impact-grid" id="impact-grid"></div>
+        <div class="form-actions" style="background:var(--panel);border:1px solid var(--border);padding:14px 18px;margin:0;">
+          <button class="btn-secondary" onclick="goToStep(1)">← Back</button>
+          <button class="btn-primary" onclick="goToStep(3)">Calculate Risk Score →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== STEP 3: RISK SCORING ===== -->
+    <div class="step-panel" id="step3">
+      <div class="form-card">
+        <div class="form-header">
+          <span style="font-size:18px">🎯</span>
+          <div>
+            <div class="form-title">Risk Scoring</div>
+            <div class="form-subtitle">Automated risk assessment based on domain, dependencies, and change type</div>
+          </div>
+        </div>
+        <div class="form-body">
+          <div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:20px;align-items:start;">
+            <!-- Score Meter -->
+            <div class="risk-meter">
+              <div class="risk-circle">
+                <svg viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="var(--border)" stroke-width="8"/>
+                  <circle cx="60" cy="60" r="50" fill="none" id="risk-arc" stroke-width="8" stroke-linecap="round"
+                    stroke-dasharray="314" stroke-dashoffset="314"
+                    transform="rotate(-90 60 60)" style="transition:stroke-dashoffset 1.5s ease;"/>
+                </svg>
+                <div class="risk-score-num" id="risk-num">--</div>
+                <div class="risk-score-label" id="risk-sub">/100</div>
+              </div>
+              <div class="risk-level-tag" id="risk-level" style="text-align:center;margin-top:8px;">—</div>
+            </div>
+            <!-- Factors -->
+            <div class="risk-factors">
+              <div class="rf-title">Risk Factor Breakdown</div>
+              <div class="rf-row">
+                <span class="rf-name">Domain Criticality</span>
+                <div class="rf-bar-wrap"><div class="rf-bar" id="rf1" style="width:0%"></div></div>
+                <span class="rf-val" id="rfv1">—</span>
+              </div>
+              <div class="rf-row">
+                <span class="rf-name">Release Type (OT/IT)</span>
+                <div class="rf-bar-wrap"><div class="rf-bar" id="rf2" style="width:0%"></div></div>
+                <span class="rf-val" id="rfv2">—</span>
+              </div>
+              <div class="rf-row">
+                <span class="rf-name">Dependency Count</span>
+                <div class="rf-bar-wrap"><div class="rf-bar" id="rf3" style="width:0%"></div></div>
+                <span class="rf-val" id="rfv3">—</span>
+              </div>
+              <div class="rf-row">
+                <span class="rf-name">Change Complexity</span>
+                <div class="rf-bar-wrap"><div class="rf-bar" id="rf4" style="width:0%"></div></div>
+                <span class="rf-val" id="rfv4">—</span>
+              </div>
+              <div class="rf-row">
+                <span class="rf-name">Environment (Prod/Stage)</span>
+                <div class="rf-bar-wrap"><div class="rf-bar" id="rf5" style="width:0%"></div></div>
+                <span class="rf-val" id="rfv5">—</span>
+              </div>
+              <div class="rf-row">
+                <span class="rf-name">Compliance Obligation</span>
+                <div class="rf-bar-wrap"><div class="rf-bar" id="rf6" style="width:0%"></div></div>
+                <span class="rf-val" id="rfv6">—</span>
+              </div>
+            </div>
+            <!-- Checklist -->
+            <div class="risk-checklist">
+              <div class="rc-title">Governance Checklist</div>
+              <div id="risk-checklist-body"></div>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn-secondary" onclick="goToStep(2)">← Back</button>
+            <button class="btn-primary" onclick="goToStep(4)">View Dependency Map →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== STEP 4: DEPENDENCY MAP ===== -->
+    <div class="step-panel" id="step4">
+      <div class="dep-map-card">
+        <div class="form-header">
+          <span style="font-size:18px">🔗</span>
+          <div>
+            <div class="form-title">Integration Dependency Map</div>
+            <div class="form-subtitle">Visual impact across all domains and connected systems</div>
+          </div>
+        </div>
+        <div class="dep-map-body" style="position:relative;height:420px;overflow:hidden;">
+          <svg id="dep-svg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1;"></svg>
+          <div id="dep-nodes" style="position:absolute;top:0;left:0;width:100%;height:100%;"></div>
+        </div>
+        <div class="dep-legend">
+          <div class="dl-item"><div class="dl-line" style="background:var(--danger)"></div> Direct Impact</div>
+          <div class="dl-item"><div class="dl-line" style="background:var(--warn);"></div> Indirect Impact</div>
+          <div class="dl-item"><div class="dl-line" style="background:var(--info);border-style:dashed"></div> Monitor Only</div>
+          <div class="dl-item"><div class="dl-line" style="background:var(--border)"></div> No Impact</div>
+        </div>
+        <div style="padding:14px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;">
+          <button class="btn-secondary" onclick="goToStep(3)">← Back</button>
+          <button class="btn-primary" onclick="goToStep(5)">Route for Approvals →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== STEP 5: APPROVAL ROUTING ===== -->
+    <div class="step-panel" id="step5">
+      <div class="form-card">
+        <div class="form-header">
+          <span style="font-size:18px">✅</span>
+          <div>
+            <div class="form-title">Approval Routing</div>
+            <div class="form-subtitle" id="approval-routing-sub">Auto-routed based on risk score and domain</div>
+          </div>
+        </div>
+        <div class="form-body">
+          <div class="approval-routing" id="approval-routing-body"></div>
+          <div class="form-actions">
+            <button class="btn-secondary" onclick="goToStep(4)">← Back</button>
+            <button class="btn-primary" onclick="goToStep(6)" style="background:var(--success);color:#fff;">🚀 Submit to Pipeline</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== STEP 6: CONFIRMATION ===== -->
+    <div class="step-panel" id="step6">
+      <div class="confirm-panel">
+        <div class="confirm-success">
+          <div class="confirm-icon">⚡</div>
+          <div class="confirm-title">Release Submitted to Pipeline</div>
+          <div class="confirm-sub">PENDING APPROVAL · BACKLOG STAGE</div>
+          <div class="confirm-id" id="confirm-id">REL-2026-####</div>
+        </div>
+        <div class="confirm-details" id="confirm-details"></div>
+        <div class="confirm-timeline">
+          <div class="ct-title">What Happens Next</div>
+          <div id="confirm-timeline-body"></div>
+        </div>
+        <div style="padding:16px 20px;border-top:1px solid var(--border);">
+          <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Preview — Pipeline Entry</div>
+          <div class="pipeline-preview">
+            <div style="padding:8px 12px;background:var(--bg3);border-bottom:1px solid var(--border);display:flex;gap:8px;">
+              <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;">BACKLOG</span>
+            </div>
+            <div class="pp-new-card" id="pipeline-new-card">
+              <div class="pp-app" id="pp-app-name">—</div>
+              <div class="pp-ver" id="pp-ver">—</div>
+              <div style="display:flex;gap:6px;margin-top:8px;">
+                <span class="rsb-chip" id="pp-domain-chip">—</span>
+                <span style="font-family:var(--font-mono);font-size:9px;padding:2px 7px;background:rgba(0,229,176,0.1);color:var(--accent);border-radius:2px;">AWAITING APPROVAL</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="padding:16px 20px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:center;">
+          <button class="btn-primary" onclick="resetWizard()">+ Create Another Release</button>
+          <button class="btn-secondary" onclick="alert('Navigating to Pipeline Board...')">View Pipeline →</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /shell -->
 
 <script>
-  // Live clock
-  function updateClock() {
-    const now = new Date();
-    const h = String(now.getUTCHours()).padStart(2,'0');
-    const m = String(now.getUTCMinutes()).padStart(2,'0');
-    const s = String(now.getUTCSeconds()).padStart(2,'0');
-    document.getElementById('clock').textContent = `${h}:${m}:${s} UTC`;
+// =====================
+// STATE
+// =====================
+let state = {
+  domain: null,
+  app: null,
+  type: null,
+  verFrom: '', verTo: '',
+  env: 'prod',
+  owner: '',
+  priority: 'normal',
+  desc: '',
+  changeTypes: ['Bug Fix'],
+  riskScore: 0,
+  riskLevel: '',
+  currentStep: 1
+};
+
+// DOMAIN APPS
+const DOMAIN_APPS = {
+  gen: ['EMS Core (GE PMAX)','PI Historian (OSIsoft)','DCS Interface Layer','Plant CMMS (SAP PM)','Environmental Reporting','Emissions Monitoring','Plant Scheduling','Fuel Management','Generator Protection Relay SW','Turbine Control System','Unit Commitment Optimizer','Plant HMI Platform','Real-time Diagnostics','Asset Performance Mgmt'],
+  tx: ['SCADA / EMS Platform','Network Model Manager','WAMS / PMU Analytics','GIS Transmission Assets','Energy Market Interface','Transmission Planning Tool','EMS Alarm Manager','Line Rating System','Substation SCADA','Market Scheduling API'],
+  dx: ['AMI Head-End System','OMS (Outage Management)','DMS (Distribution Mgmt)','GIS Distribution Layer','Mobile Field Workforce','ADMS Platform','Volt/VAR Optimization','Fault Isolation (FLISR)','Advanced Metering Infra','Smart Meter Data Mgmt','DER Management System','Crew Dispatch System','Vegetation Management','Substation Automation','DERMS Integration','Underground Asset GIS','Cable Management','Switch Order Mgmt','Field Safety App','Switching Scheduler','Load Forecasting','Street Light Control'],
+  bill: ['Billing Engine (CC&B)','CIS / Customer Portal','Rate Engine API','MDM / Meter Data Mgmt','Payment Gateway','Revenue Protection','Bill Print & Presentment','Collections Management','Demand Response Billing','RECs / Green Energy Tracking','Budget Billing System'],
+  cx: ['CRM (Salesforce Utility)','IVR / Contact Center','Self-Service Web Portal','Mobile App (Customer)','Chatbot / AI Assistant','Service Order Management','Outage Notification System','Energy Advisor Portal','Customer Analytics','Solar / DER Portal','EV Charging Portal','Field Service Scheduling','Social Media Integration','Net Metering Portal','Knowledge Base System','Customer Survey Platform']
+};
+
+// IMPACT MATRIX: which apps in other domains are affected when you release in domain X
+const IMPACT_MATRIX = {
+  gen: {
+    tx: [{app:'EMS / SCADA Platform',impact:'direct',desc:'Generation data feeds directly into Transmission EMS for real-time dispatch'},{app:'Energy Market Interface',impact:'direct',desc:'Generation output affects market scheduling and ISO settlement'},{app:'Network Model Manager',impact:'indirect',desc:'Generation capacity changes may require network model update'}],
+    dx: [{app:'ADMS Platform',impact:'indirect',desc:'Generation output changes affect distribution load balancing'},{app:'DER Management System',impact:'monitor',desc:'Monitor for grid stability impacts on DER dispatch'}],
+    bill: [{app:'Billing Engine (CC&B)',impact:'indirect',desc:'Generation events may trigger billing adjustments or credits'},{app:'MDM / Meter Data Mgmt',impact:'monitor',desc:'Interval data from generation meters flows to MDM'}],
+    cx: [{app:'Outage Notification System',impact:'monitor',desc:'Generation outages may trigger customer outage notifications'},{app:'Energy Advisor Portal',impact:'none',desc:'No direct dependency'}]
+  },
+  tx: {
+    gen: [{app:'EMS Core (GE PMAX)',impact:'direct',desc:'Transmission EMS is tightly coupled with Generation EMS for real-time control'},{app:'Plant Scheduling',impact:'indirect',desc:'Transmission constraints affect generation scheduling decisions'}],
+    dx: [{app:'OMS (Outage Management)',impact:'direct',desc:'Transmission outages cascade to distribution OMS for feeder isolation'},{app:'ADMS Platform',impact:'direct',desc:'Transmission topology changes propagate to ADMS network model'},{app:'GIS Distribution Layer',impact:'indirect',desc:'Substation boundary changes require GIS updates'}],
+    bill: [{app:'Billing Engine (CC&B)',impact:'indirect',desc:'Transmission losses affect customer billing calculations'},{app:'Rate Engine API',impact:'monitor',desc:'Transmission tariff changes may affect rate engine rules'}],
+    cx: [{app:'Outage Notification System',impact:'direct',desc:'Transmission faults trigger mass customer outage notifications'},{app:'CRM (Salesforce Utility)',impact:'indirect',desc:'Large transmission outages create high volume CRM case load'}]
+  },
+  dx: {
+    gen: [{app:'EMS Core (GE PMAX)',impact:'monitor',desc:'Distribution load changes may affect generation dispatch'},{app:'Unit Commitment Optimizer',impact:'indirect',desc:'Demand changes in distribution affect unit commitment decisions'}],
+    tx: [{app:'SCADA / EMS Platform',impact:'indirect',desc:'Distribution feeder status feeds into Transmission SCADA overview'},{app:'Network Model Manager',impact:'indirect',desc:'Distribution topology affects overall network model'}],
+    bill: [{app:'AMI Head-End System',impact:'direct',desc:'AMI is the primary meter data source for billing — direct integration'},{app:'MDM / Meter Data Mgmt',impact:'direct',desc:'Meter reads flow from AMI through MDM to billing engine'},{app:'Billing Engine (CC&B)',impact:'direct',desc:'Distribution meter data directly feeds billing calculations'}],
+    cx: [{app:'Outage Notification System',impact:'direct',desc:'Distribution outages are the primary driver of customer notifications'},{app:'Self-Service Web Portal',impact:'indirect',desc:'Outage map on customer portal reads from OMS'},{app:'CRM (Salesforce Utility)',impact:'indirect',desc:'Field crew dispatch creates CRM service orders'}]
+  },
+  bill: {
+    gen: [{app:'Environmental Reporting',impact:'monitor',desc:'Billing data feeds environmental compliance reports'},{app:'Fuel Management',impact:'none',desc:'No direct billing dependency'}],
+    tx: [{app:'Energy Market Interface',impact:'direct',desc:'Billing settlement data must reconcile with market interface'},{app:'Network Model Manager',impact:'none',desc:'No dependency'}],
+    dx: [{app:'AMI Head-End System',impact:'direct',desc:'Billing changes may require AMI re-read or interval data request'},{app:'Smart Meter Data Mgmt',impact:'direct',desc:'Billing rules drive how smart meter data is validated and processed'}],
+    cx: [{app:'CRM (Salesforce Utility)',impact:'direct',desc:'Billing disputes and account info sync to CRM in real time'},{app:'Self-Service Web Portal',impact:'direct',desc:'Customer bill view and payment on web portal reads from billing API'},{app:'IVR / Contact Center',impact:'direct',desc:'IVR account balance and bill inquiry calls billing API directly'},{app:'Mobile App (Customer)',impact:'direct',desc:'Mobile app bill pay calls billing and payment gateway APIs'}]
+  },
+  cx: {
+    gen: [{app:'EMS Core (GE PMAX)',impact:'none',desc:'No direct CX dependency on generation EMS'},{app:'Plant Scheduling',impact:'none',desc:'No dependency'}],
+    tx: [{app:'SCADA / EMS Platform',impact:'none',desc:'No direct CX dependency on transmission SCADA'}],
+    dx: [{app:'OMS (Outage Management)',impact:'direct',desc:'Outage notification system reads live OMS data for customer alerts'},{app:'GIS Distribution Layer',impact:'indirect',desc:'Outage maps on customer portal read from GIS/OMS'},{app:'Field Service Scheduling',impact:'direct',desc:'CRM service orders trigger field crew scheduling in DX domain'}],
+    bill: [{app:'Billing Engine (CC&B)',impact:'direct',desc:'CRM account changes sync to billing for address, rate, and enrollment updates'},{app:'Payment Gateway',impact:'direct',desc:'Customer payment transactions route through payment gateway'},{app:'Rate Engine API',impact:'indirect',desc:'Rate plan changes originating from CX flow to billing rate engine'}]
   }
-  updateClock();
-  setInterval(updateClock, 1000);
+};
 
-  // Simulate deploying progress
-  let crm = 72;
-  setInterval(() => {
-    if (crm < 100) {
-      crm += Math.random() * 0.3;
-      document.querySelectorAll('.progress-fill.active').forEach(el => {
-        el.style.width = Math.min(crm, 99).toFixed(1) + '%';
-      });
-    }
-  }, 800);
+// =====================
+// CLOCK
+// =====================
+function updateClock(){
+  const n=new Date();
+  document.getElementById('clock').textContent=
+    [n.getUTCHours(),n.getUTCMinutes(),n.getUTCSeconds()].map(v=>String(v).padStart(2,'0')).join(':')+' UTC';
+}
+updateClock(); setInterval(updateClock,1000);
 
-  // Nav item click
-  document.querySelectorAll('.nav-item').forEach(item => {
-    item.addEventListener('click', () => {
-      document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-      item.classList.add('active');
+// =====================
+// DOMAIN SELECT
+// =====================
+function selectDomain(domain, el) {
+  document.querySelectorAll('.domain-card').forEach(d=>d.classList.remove('selected'));
+  el.classList.add('selected');
+  state.domain = domain;
+  // Populate apps
+  const sel = document.getElementById('sel-app');
+  sel.innerHTML = DOMAIN_APPS[domain].map(a=>`<option value="${a}">${a}</option>`).join('');
+}
+
+// =====================
+// TOGGLE PILL
+// =====================
+function togglePill(el) {
+  el.classList.toggle('selected');
+  state.changeTypes = Array.from(document.querySelectorAll('.type-pill.selected')).map(p=>p.textContent);
+}
+
+// =====================
+// STEP NAVIGATION
+// =====================
+function goToStep(n) {
+  if(n===2 && !validate1()) return;
+  // Collect step 1 data
+  if(n>=2){
+    state.app = document.getElementById('sel-app').value;
+    state.type = document.getElementById('sel-type').value;
+    state.verFrom = document.getElementById('ver-from').value || 'v?.?.?';
+    state.verTo = document.getElementById('ver-to').value || 'v?.?.?';
+    state.env = document.getElementById('sel-env').value;
+    state.owner = document.getElementById('owner').value || 'Unassigned';
+    state.priority = document.getElementById('sel-priority').value;
+    state.desc = document.getElementById('desc').value;
+  }
+
+  // Mark steps
+  for(let i=1;i<=6;i++){
+    const ws=document.getElementById('ws'+i);
+    if(!ws)continue;
+    ws.classList.remove('active','done');
+    if(i<n) ws.classList.add('done');
+    if(i===n) ws.classList.add('active');
+  }
+
+  // Hide all panels
+  document.querySelectorAll('.step-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('step'+n).classList.add('active');
+  state.currentStep = n;
+
+  // Progress
+  const pct = Math.round(((n-1)/5)*100);
+  document.getElementById('prog-fill').style.width=pct+'%';
+  document.getElementById('prog-pct').textContent=pct+'%';
+
+  // Step-specific logic
+  if(n===2) renderImpact();
+  if(n===3) renderRisk();
+  if(n===4) renderDepMap();
+  if(n===5) renderApprovals();
+  if(n===6) renderConfirm();
+
+  // Scroll to top
+  document.querySelector('.content').scrollTo({top:0,behavior:'smooth'});
+}
+
+// =====================
+// VALIDATE STEP 1
+// =====================
+function validate1(){
+  if(!state.domain){alert('Please select a domain first.');return false;}
+  if(!document.getElementById('sel-app').value){alert('Please select an application.');return false;}
+  return true;
+}
+
+// =====================
+// STEP 2 — IMPACT
+// =====================
+function renderImpact(){
+  document.getElementById('impact-loading').style.display='block';
+  document.getElementById('impact-results').style.display='none';
+  setTimeout(()=>{
+    document.getElementById('impact-loading').style.display='none';
+    document.getElementById('impact-results').style.display='flex';
+
+    // Summary bar
+    const domainLabels={gen:'Generation',tx:'Transmission',dx:'Distribution',bill:'Billing',cx:'Customer Care'};
+    const domainColors={gen:'gen',tx:'tx',dx:'dx',bill:'billing',cx:'cx'};
+    const typeLabel={it:'IT System',ot:'OT / SCADA',saas:'SaaS Integration',api:'API',mobile:'Mobile App',infra:'Infrastructure'};
+    document.getElementById('rsb').innerHTML=`
+      <span class="rsb-label">Release</span>
+      <span class="rsb-val">${state.app}</span>
+      <div class="rsb-divider"></div>
+      <span class="rsb-chip ${domainColors[state.domain]}">${domainLabels[state.domain]}</span>
+      <div class="rsb-divider"></div>
+      <span class="rsb-label">Version</span>
+      <span class="rsb-val" style="font-family:var(--font-mono);font-size:13px;color:var(--accent)">${state.verFrom} → ${state.verTo}</span>
+      <div class="rsb-divider"></div>
+      <span class="rsb-label">Type</span>
+      <span class="rsb-val" style="font-size:13px">${typeLabel[state.type]||state.type}</span>
+    `;
+
+    // Impact summary
+    const impacts = IMPACT_MATRIX[state.domain]||{};
+    const allImpacts = Object.values(impacts).flat();
+    const directCount = allImpacts.filter(i=>i.impact==='direct').length;
+    const indirectCount = allImpacts.filter(i=>i.impact==='indirect').length;
+    document.getElementById('impact-summary-text').innerHTML=
+      `This release of <strong style="color:var(--text-primary)">${state.app}</strong> in the <strong style="color:var(--text-primary)">${domainLabels[state.domain]}</strong> domain has been analyzed against all ${72} registered apps and integrations. 
+      Found <strong style="color:var(--danger)">${directCount} direct impacts</strong> and <strong style="color:var(--warn)">${indirectCount} indirect impacts</strong> across ${Object.keys(impacts).length} other domains. 
+      ${directCount>0?'<strong style="color:var(--danger)">⚠ Critical dependencies detected — additional approval gates required.</strong>':''}`;
+
+    // Impact cards per domain
+    const domainOrder=['gen','tx','dx','bill','cx'].filter(d=>d!==state.domain);
+    let grid='';
+    domainOrder.forEach(d=>{
+      const items=impacts[d]||[];
+      const directH=items.filter(i=>i.impact==='direct').length;
+      const indH=items.filter(i=>i.impact==='indirect').length;
+      let badgeClass='none',badgeText='No Impact';
+      if(directH>0){badgeClass='high';badgeText='HIGH IMPACT';}
+      else if(indH>0){badgeClass='med';badgeText='INDIRECT';}
+      const icons={gen:'🔥',tx:'🔌',dx:'🏘️',bill:'💳',cx:'🎧'};
+      const colors={gen:'var(--gen)',tx:'var(--tx)',dx:'var(--dx)',bill:'var(--bill)',cx:'var(--cx)'};
+      grid+=`<div class="impact-domain-card">
+        <div class="idc-header">
+          <span style="font-size:16px">${icons[d]}</span>
+          <span class="idc-title" style="color:${colors[d]}">${domainLabels[d]}</span>
+          <span class="idc-badge ${badgeClass}">${badgeText}</span>
+        </div>
+        <div class="idc-body">`;
+      if(items.length===0){
+        grid+=`<div style="padding:12px;font-family:var(--font-mono);font-size:10px;color:var(--text-muted);text-align:center;">No dependency detected</div>`;
+      } else {
+        items.forEach(item=>{
+          grid+=`<div class="impact-row">
+            <div>
+              <div class="ir-app">${item.app}</div>
+              <div class="ir-desc">${item.desc}</div>
+            </div>
+            <span class="ir-type ${item.impact}">${item.impact.toUpperCase()}</span>
+          </div>`;
+        });
+      }
+      grid+=`</div></div>`;
     });
+    document.getElementById('impact-grid').innerHTML=grid;
+  },1800);
+}
+
+// =====================
+// STEP 3 — RISK
+// =====================
+function renderRisk(){
+  // Calculate score
+  const impacts=IMPACT_MATRIX[state.domain]||{};
+  const allImpacts=Object.values(impacts).flat();
+  const directCount=allImpacts.filter(i=>i.impact==='direct').length;
+
+  const domainCriticality={gen:85,tx:90,dx:75,bill:70,cx:55};
+  const typeCriticality={ot:90,it:50,saas:45,api:55,mobile:35,infra:70};
+  const envCrit={prod:90,'prod-ot':100,staging:40,dev:15,dr:60};
+  const hasSecurity=state.changeTypes.includes('Security Patch');
+  const isEmergency=state.changeTypes.includes('Emergency Hotfix');
+  const isComplianceUpdate=state.changeTypes.includes('Compliance Update');
+
+  const r1=domainCriticality[state.domain]||60;
+  const r2=typeCriticality[state.type]||50;
+  const r3=Math.min(100,directCount*20+15);
+  const r4=state.changeTypes.length*12+20;
+  const r5=envCrit[state.env]||50;
+  const r6=(hasSecurity?80:0)+(isEmergency?70:0)+(isComplianceUpdate?60:0)||20;
+
+  const score=Math.min(99,Math.round((r1*0.25+r2*0.2+r3*0.2+r4*0.1+r5*0.15+r6*0.1)));
+  state.riskScore=score;
+
+  let level,color;
+  if(score>=80){level='CRITICAL';color='var(--danger)';}
+  else if(score>=60){level='HIGH';color='var(--warn)';}
+  else if(score>=40){level='MEDIUM';color='var(--info)';}
+  else{level='LOW';color='var(--success)';}
+  state.riskLevel=level;
+
+  // Animate
+  setTimeout(()=>{
+    document.getElementById('risk-num').textContent=score;
+    document.getElementById('risk-num').style.color=color;
+    document.getElementById('risk-sub').style.color=color;
+    document.getElementById('risk-level').textContent=level;
+    document.getElementById('risk-level').style.color=color;
+    const arc=document.getElementById('risk-arc');
+    arc.style.stroke=color;
+    const offset=314-(314*(score/100));
+    arc.style.strokeDashoffset=offset;
+
+    const bars=[r1,r2,r3,r4,r5,r6];
+    const vals=['r1','r2','r3','r4','r5','r6'];
+    bars.forEach((v,i)=>{
+      const el=document.getElementById('rf'+(i+1));
+      const vel=document.getElementById('rfv'+(i+1));
+      el.style.width=v+'%';
+      el.style.background=v>70?'var(--danger)':v>40?'var(--warn)':'var(--success)';
+      vel.textContent=v;
+    });
+
+    // Checklist
+    const type=state.type;
+    const isOT=type==='ot';
+    const isProd=state.env==='prod'||state.env==='prod-ot';
+    const checks=[
+      {ok:true,text:`<strong>Change Request (CR) created</strong> — REL-2026-${Math.floor(Math.random()*9000+1000)} auto-generated`},
+      {ok:isProd?score<60:true,text:isProd&&score>=60?`<strong>CAB Approval Required</strong> — Risk score ${score} ≥ 60 mandates Change Advisory Board review`:`<strong>Standard Approval Sufficient</strong> — Risk within normal threshold`},
+      {ok:!isOT,text:isOT?`<strong>NERC CIP Security Review Required</strong> — OT/SCADA releases must pass CIP-007 and CIP-010 controls`:`<strong>IT Security Scan Required</strong> — SAST/DAST scan before production`},
+      {ok:!hasSecurity||score<80,text:hasSecurity&&score>=80?`<strong>Emergency Security CAB Required</strong> — Security patch with high risk requires expedited CAB`:`<strong>Security Controls</strong> — Standard security review applies`},
+      {ok:directCount<3,text:directCount>=3?`<strong>Integration Freeze Recommended</strong> — ${directCount} direct dependencies; coordinate freeze window`:`<strong>Dependency Count Acceptable</strong> — ${directCount} direct ${directCount===1?'dependency':'dependencies'} identified`},
+      {ok:true,text:`<strong>Rollback Plan Required</strong> — Auto-generated rollback procedure attached to release`},
+      {ok:!isComplianceUpdate,text:isComplianceUpdate?`<strong>Compliance Officer Sign-off Required</strong> — Compliance update requires regulatory team approval`:`<strong>No Regulatory Filing Required</strong>`},
+    ];
+    document.getElementById('risk-checklist-body').innerHTML=checks.map(c=>`
+      <div class="rc-item">
+        <span class="rc-icon">${c.ok?'✅':'⚠️'}</span>
+        <span class="rc-text">${c.text}</span>
+      </div>`).join('');
+  },200);
+}
+
+// =====================
+// STEP 4 — DEP MAP
+// =====================
+function renderDepMap(){
+  const svg=document.getElementById('dep-svg');
+  const nodesDiv=document.getElementById('dep-nodes');
+  svg.innerHTML=''; nodesDiv.innerHTML='';
+
+  const impacts=IMPACT_MATRIX[state.domain]||{};
+  const domainColors={gen:'#f59e0b',tx:'#38bdf8',dx:'#a78bfa',bill:'#fb7185',cx:'#00e5b0'};
+  const domainLabels={gen:'Generation',tx:'Transmission',dx:'Distribution',bill:'Billing',cx:'Customer Care'};
+  const domainIcons={gen:'🔥',tx:'🔌',dx:'🏘️',bill:'💳',cx:'🎧'};
+
+  // Layout: source center, others around
+  const W=700,H=380;
+  const positions={
+    source:{x:310,y:170},
+    gen:{x:80,y:60},
+    tx:{x:560,y:60},
+    dx:{x:80,y:270},
+    bill:{x:560,y:270},
+    cx:{x:320,y:320}
+  };
+  // Remove source domain from positions
+  delete positions[state.domain];
+
+  // Draw lines first
+  const domainOrder=['gen','tx','dx','bill','cx'].filter(d=>d!==state.domain);
+  domainOrder.forEach(d=>{
+    const items=impacts[d]||[];
+    const directH=items.filter(i=>i.impact==='direct').length;
+    const indH=items.filter(i=>i.impact==='indirect').length;
+    const pos=positions[d];
+    if(!pos)return;
+    let stroke='var(--border)',sw=1,dash='';
+    if(directH>0){stroke='var(--danger)';sw=2;}
+    else if(indH>0){stroke='var(--warn)';sw=1.5;dash='6,3';}
+    else{stroke='var(--info)';sw=1;dash='3,4';}
+
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',positions.source.x+60);
+    line.setAttribute('y1',positions.source.y+25);
+    line.setAttribute('x2',pos.x+60);
+    line.setAttribute('y2',pos.y+25);
+    line.setAttribute('stroke',stroke);
+    line.setAttribute('stroke-width',sw);
+    if(dash)line.setAttribute('stroke-dasharray',dash);
+    line.setAttribute('opacity','0.7');
+    svg.appendChild(line);
   });
 
-  // Filter pills
-  document.querySelectorAll('.filter-pill').forEach(pill => {
-    pill.addEventListener('click', () => {
-      const siblings = pill.parentElement.querySelectorAll('.filter-pill');
-      siblings.forEach(p => p.classList.remove('active'));
-      pill.classList.add('active');
-    });
+  // Source node
+  const sColor=domainColors[state.domain];
+  const sNode=document.createElement('div');
+  sNode.className='dep-node source';
+  sNode.style.cssText=`left:${positions.source.x}px;top:${positions.source.y}px;width:130px;border-color:${sColor};`;
+  sNode.innerHTML=`<div class="dn-name" style="color:${sColor}">${state.app.length>20?state.app.substring(0,20)+'...':state.app}</div>
+    <div class="dn-domain" style="color:${sColor}">${domainIcons[state.domain]} ${domainLabels[state.domain]}</div>
+    <div style="font-family:var(--font-mono);font-size:9px;margin-top:4px;color:var(--accent)">${state.verFrom}→${state.verTo}</div>`;
+  nodesDiv.appendChild(sNode);
+
+  // Other domain nodes
+  domainOrder.forEach(d=>{
+    const items=impacts[d]||[];
+    const directH=items.filter(i=>i.impact==='direct').length;
+    const indH=items.filter(i=>i.impact==='indirect').length;
+    const pos=positions[d];
+    if(!pos)return;
+    let impClass='impact-none',impColor=domainColors[d];
+    if(directH>0)impClass='impact-high';
+    else if(indH>0)impClass='impact-med';
+    const borderColor=directH>0?'var(--danger)':indH>0?'var(--warn)':'var(--border)';
+    const topApp=items[0]?items[0].app:'No dependency';
+    const node=document.createElement('div');
+    node.className=`dep-node ${impClass}`;
+    node.style.cssText=`left:${pos.x}px;top:${pos.y}px;width:130px;border-color:${borderColor};`;
+    node.innerHTML=`<div class="dn-name" style="color:${impColor}">${domainIcons[d]} ${domainLabels[d]}</div>
+      <div class="dn-domain" style="color:var(--text-muted)">${items.length} app${items.length!==1?'s':''} affected</div>
+      <div style="font-size:10px;color:var(--text-secondary);margin-top:4px;">${topApp.length>22?topApp.substring(0,22)+'...':topApp}</div>`;
+    nodesDiv.appendChild(node);
+  });
+}
+
+// =====================
+// STEP 5 — APPROVALS
+// =====================
+function renderApprovals(){
+  const score=state.riskScore;
+  const isOT=state.type==='ot';
+  const isProd=state.env==='prod'||state.env==='prod-ot';
+  const isComplianceUpdate=state.changeTypes.includes('Compliance Update');
+  const hasSecurity=state.changeTypes.includes('Security Patch');
+  const domainLabels={gen:'Generation',tx:'Transmission',dx:'Distribution',bill:'Billing',cx:'Customer Care'};
+
+  document.getElementById('approval-routing-sub').textContent=
+    `Risk Score: ${score}/100 · ${state.riskLevel} · Auto-routed based on domain policy`;
+
+  const approvalGroups=[];
+
+  // Always: Domain Lead
+  approvalGroups.push({
+    title:`${domainLabels[state.domain]} Domain Lead`,
+    required:'standard',
+    requiredLabel:'REQUIRED',
+    reason:`All releases in the ${domainLabels[state.domain]} domain require domain lead sign-off before entering the deployment pipeline.`,
+    approvers:[
+      {name:getOwner(state.domain),role:'Domain Lead',color:'#38bdf8'},
+      {name:'T. Morgan',role:'Peer Reviewer',color:'#a78bfa'}
+    ],
+    sla:'SLA: <span>24 hours</span>'
   });
 
-  // Approval buttons
-  document.querySelectorAll('.btn-approve').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const item = e.target.closest('.approval-item');
-      item.style.opacity = '0.4';
-      item.style.pointerEvents = 'none';
-      const app = item.querySelector('.appr-app').textContent;
-      console.log('Approved:', app);
+  // OT: NERC CIP
+  if(isOT){
+    approvalGroups.push({
+      title:'NERC CIP Security Review',
+      required:'mandatory',
+      requiredLabel:'MANDATORY — OT',
+      reason:'OT/SCADA releases are subject to NERC CIP-007 (System Security Management) and CIP-010 (Configuration Change Management). Cybersecurity team must validate patch levels and access controls.',
+      approvers:[
+        {name:'B. Kowalski',role:'Cybersecurity Analyst',color:'#ef4444'},
+        {name:'J. Rivera',role:'NERC CIP Compliance',color:'#ef4444'}
+      ],
+      sla:'SLA: <span>48 hours</span>'
     });
-  });
+  }
 
-  document.querySelectorAll('.btn-reject').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const item = e.target.closest('.approval-item');
-      item.style.background = 'rgba(239,68,68,0.08)';
-      item.style.opacity = '0.5';
-      item.style.pointerEvents = 'none';
+  // High/Critical risk: CAB
+  if(score>=60&&isProd){
+    approvalGroups.push({
+      title:'Change Advisory Board (CAB)',
+      required:'mandatory',
+      requiredLabel:'MANDATORY — RISK '+score,
+      reason:`Risk score of ${score}/100 exceeds threshold (60) for production deployments. Full CAB review required. CAB meets every Tuesday and Thursday at 2PM UTC.`,
+      approvers:[
+        {name:'L. Patterson',role:'CAB Chair / CTO',color:'#f59e0b'},
+        {name:'R. Vasquez',role:'Operations Manager',color:'#f59e0b'},
+        {name:'C. Nguyen',role:'IT Director',color:'#a78bfa'}
+      ],
+      sla:'SLA: <span>72 hours (next CAB meeting)</span>'
     });
+  }
+
+  // Compliance
+  if(isComplianceUpdate){
+    approvalGroups.push({
+      title:'Regulatory & Compliance Sign-off',
+      required:'mandatory',
+      requiredLabel:'MANDATORY — REGULATORY',
+      reason:'Compliance updates affecting billing rates, tariffs, or customer data require sign-off from the regulatory affairs team before deployment.',
+      approvers:[
+        {name:'M. Hoffman',role:'Regulatory Affairs',color:'#fb7185'},
+        {name:'S. Carter',role:'General Counsel',color:'#fb7185'}
+      ],
+      sla:'SLA: <span>5 business days</span>'
+    });
+  }
+
+  // Security patch
+  if(hasSecurity){
+    approvalGroups.push({
+      title:'Information Security Review',
+      required:'mandatory',
+      requiredLabel:'MANDATORY — SEC PATCH',
+      reason:'Security patches require vulnerability validation, CVE assessment, and sign-off from the Information Security team to confirm the patch addresses the identified risk.',
+      approvers:[
+        {name:'K. Solomon',role:'CISO / Security Lead',color:'#ef4444'}
+      ],
+      sla:'SLA: <span>24 hours (expedited)</span>'
+    });
+  }
+
+  // Impacted domain leads
+  const impacts=IMPACT_MATRIX[state.domain]||{};
+  const highImpactDomains=Object.keys(impacts).filter(d=>{
+    return (impacts[d]||[]).some(i=>i.impact==='direct');
   });
+  if(highImpactDomains.length>0){
+    approvalGroups.push({
+      title:'Impacted Domain Leads',
+      required:'standard',
+      requiredLabel:'REQUIRED — CROSS DOMAIN',
+      reason:`Direct integration impacts detected in ${highImpactDomains.length} domain(s). Affected domain leads must acknowledge impact and confirm readiness before deployment.`,
+      approvers:highImpactDomains.map(d=>({
+        name:getOwner(d),
+        role:`${domainLabels[d]} Lead`,
+        color:({gen:'#f59e0b',tx:'#38bdf8',dx:'#a78bfa',bill:'#fb7185',cx:'#00e5b0'})[d]
+      })),
+      sla:'SLA: <span>48 hours</span>'
+    });
+  }
+
+  // Auto-approve for low risk non-prod
+  if(score<40&&!isProd){
+    approvalGroups.push({
+      title:'Auto-Approval Gate',
+      required:'auto',
+      requiredLabel:'AUTO-APPROVE',
+      reason:`Risk score ${score}/100 is below auto-approve threshold (40) for non-production environments. This gate will be automatically approved after CI pipeline passes.`,
+      approvers:[{name:'GridFlow CI/CD Bot',role:'Automated Gate',color:'#22c55e'}],
+      sla:'SLA: <span>Immediate (post CI)</span>'
+    });
+  }
+
+  document.getElementById('approval-routing-body').innerHTML=approvalGroups.map(g=>`
+    <div class="ar-card">
+      <div class="ar-header">
+        <span class="ar-title">${g.title}</span>
+        <span class="ar-required ${g.required.split(' ')[0]}">${g.requiredLabel}</span>
+      </div>
+      <div class="ar-body">
+        <div class="ar-approvers">
+          ${g.approvers.map(a=>`
+            <div class="approver-chip">
+              <div class="approver-avatar" style="background:${a.color}">${a.name.charAt(0)}</div>
+              <div><div class="approver-name">${a.name}</div><div class="approver-role">${a.role}</div></div>
+            </div>`).join('')}
+        </div>
+        <div class="ar-reason">${g.reason}</div>
+        <div class="ar-sla">${g.sla}</div>
+      </div>
+    </div>`).join('');
+}
+
+function getOwner(domain){
+  return {gen:'R. Patel',tx:'M. Singh',dx:'K. Wu',bill:'A. Torres',cx:'J. Chen'}[domain]||'TBD';
+}
+
+// =====================
+// STEP 6 — CONFIRM
+// =====================
+function renderConfirm(){
+  const id='REL-2026-'+Math.floor(Math.random()*9000+1000);
+  document.getElementById('confirm-id').textContent=id;
+
+  const domainLabels={gen:'Generation',tx:'Transmission',dx:'Distribution',bill:'Billing',cx:'Customer Care'};
+  const domainColors={gen:'gen',tx:'tx',dx:'dx',bill:'billing',cx:'cx'};
+  const envLabels={prod:'PRODUCTION',staging:'STAGING',dev:'DEV',it:'IT','prod-ot':'PROD OT',dr:'DR'};
+  const impacts=IMPACT_MATRIX[state.domain]||{};
+  const allImpacts=Object.values(impacts).flat();
+  const directCount=allImpacts.filter(i=>i.impact==='direct').length;
+
+  document.getElementById('confirm-details').innerHTML=`
+    <div class="cd-item"><div class="cd-label">Application</div><div class="cd-val">${state.app.length>22?state.app.substring(0,22)+'...':state.app}</div></div>
+    <div class="cd-item"><div class="cd-label">Domain</div><div class="cd-val">${domainLabels[state.domain]}</div></div>
+    <div class="cd-item"><div class="cd-label">Version</div><div class="cd-val" style="font-family:var(--font-mono);color:var(--accent);font-size:13px">${state.verFrom} → ${state.verTo}</div></div>
+    <div class="cd-item"><div class="cd-label">Environment</div><div class="cd-val">${(envLabels[state.env]||state.env).toUpperCase()}</div></div>
+    <div class="cd-item"><div class="cd-label">Risk Score</div><div class="cd-val" style="color:${state.riskScore>=80?'var(--danger)':state.riskScore>=60?'var(--warn)':state.riskScore>=40?'var(--info)':'var(--success)'}">${state.riskScore}/100 · ${state.riskLevel}</div></div>
+    <div class="cd-item"><div class="cd-label">Direct Impacts</div><div class="cd-val" style="color:${directCount>0?'var(--danger)':'var(--success)'}">${directCount} System${directCount!==1?'s':''}</div></div>
+  `;
+
+  const now=new Date();
+  const fmt=d=>`${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')} UTC`;
+  const addMin=(m)=>{const d=new Date(now);d.setMinutes(d.getMinutes()+m);return fmt(d);};
+
+  document.getElementById('confirm-timeline-body').innerHTML=`
+    <div class="ct-row"><div class="ct-dot" style="background:var(--success)"></div><div class="ct-content"><div class="ct-action">Release created and entered pipeline (BACKLOG stage)</div><div class="ct-time">Now · ${fmt(now)}</div></div></div>
+    <div class="ct-row"><div class="ct-dot" style="background:var(--accent)"></div><div class="ct-content"><div class="ct-action">Approval notifications sent to ${state.riskScore>=60?'CAB and domain leads':'domain leads'}</div><div class="ct-time">~${addMin(2)}</div></div></div>
+    <div class="ct-row"><div class="ct-dot" style="background:var(--warn)"></div><div class="ct-content"><div class="ct-action">CI/CD pipeline triggered — build and test stage begins</div><div class="ct-time">After first approval received</div></div></div>
+    <div class="ct-row"><div class="ct-dot" style="background:var(--info)"></div><div class="ct-content"><div class="ct-action">Impact notifications sent to ${directCount} directly affected systems</div><div class="ct-time">~${addMin(5)}</div></div></div>
+    <div class="ct-row"><div class="ct-dot" style="background:var(--text-muted)"></div><div class="ct-content"><div class="ct-action">Deployment window opens after all approvals received</div><div class="ct-time">Per SLA — ${state.riskScore>=60?'72 hrs (CAB)':'24-48 hrs'}</div></div></div>
+  `;
+
+  // Pipeline card
+  document.getElementById('pp-app-name').textContent=state.app;
+  document.getElementById('pp-ver').textContent=`${state.verFrom} → ${state.verTo} · ${state.owner} · ${id}`;
+  document.getElementById('pp-domain-chip').textContent=domainLabels[state.domain];
+  document.getElementById('pp-domain-chip').className=`rsb-chip ${domainColors[state.domain]}`;
+}
+
+// =====================
+// RESET
+// =====================
+function resetWizard(){
+  state={domain:null,app:null,type:null,verFrom:'',verTo:'',env:'prod',owner:'',priority:'normal',desc:'',changeTypes:['Bug Fix'],riskScore:0,riskLevel:'',currentStep:1};
+  document.querySelectorAll('.domain-card').forEach(d=>d.classList.remove('selected'));
+  document.getElementById('sel-app').innerHTML='<option value="">— Select Domain First —</option>';
+  ['ver-from','ver-to','owner','desc'].forEach(id=>{document.getElementById(id).value='';});
+  document.querySelectorAll('.type-pill').forEach((p,i)=>{p.classList.toggle('selected',i===0);});
+  for(let i=1;i<=6;i++){
+    const ws=document.getElementById('ws'+i);
+    if(ws){ws.classList.remove('active','done');if(i===1)ws.classList.add('active');}
+  }
+  document.querySelectorAll('.step-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('step1').classList.add('active');
+  document.getElementById('prog-fill').style.width='0%';
+  document.getElementById('prog-pct').textContent='0%';
+  document.querySelector('.content').scrollTo({top:0,behavior:'smooth'});
+}
+
+// Set default date
+document.getElementById('sched-date').valueAsDate=new Date(Date.now()+7*86400000);
 </script>
 </body>
 </html>
