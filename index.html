@@ -1,3 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GridFlow — Configuration Item Registry</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#09100f;--bg2:#0e1a18;--bg3:#132420;--panel:#0d1e1b;
+  --border:#1e3530;--border2:#254740;
+  --accent:#00e5b0;--accent2:#00b88c;--accent-dim:rgba(0,229,176,0.10);--accent-glow:rgba(0,229,176,0.22);
+  --warn:#f59e0b;--warn-dim:rgba(245,158,11,0.13);
+  --danger:#ef4444;--danger-dim:rgba(239,68,68,0.13);
+  --info:#38bdf8;--info-dim:rgba(56,189,248,0.10);
+  --success:#22c55e;--success-dim:rgba(34,197,94,0.12);
+  --purple:#a78bfa;--purple-dim:rgba(167,139,250,0.12);
+  --text-primary:#e8f5f2;--text-secondary:#7eada5;--text-muted:#4a7a72;
+  --font-display:'Rajdhani',sans-serif;--font-mono:'IBM Plex Mono',monospace;--font-body:'IBM Plex Sans',sans-serif;
+  --gen:#f59e0b;--tx:#38bdf8;--dx:#a78bfa;--bill:#fb7185;--cx:#00e5b0;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text-primary);font-family:var(--font-body);font-size:13px;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,229,176,0.022) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,176,0.022) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+.shell{display:flex;height:100vh;position:relative;z-index:1;}
+
+/* SIDEBAR */
+.sidebar{width:214px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.logo-area{padding:18px 16px 14px;border-bottom:1px solid var(--border);}
+.logo-mark{display:flex;align-items:center;gap:9px;margin-bottom:3px;}
+.logo-name{font-family:var(--font-display);font-size:22px;font-weight:700;letter-spacing:2px;color:var(--accent);text-transform:uppercase;}
+.logo-sub{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;padding-left:40px;}
+.nav{padding:12px 0;flex:1;overflow-y:auto;}
+.nav-section{margin-bottom:16px;}
+.nav-label{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;padding:0 14px 7px;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 14px;cursor:pointer;transition:all 0.15s;border-left:2px solid transparent;color:var(--text-secondary);font-size:13px;font-weight:500;}
+.nav-item:hover{background:var(--accent-dim);color:var(--text-primary);}
+.nav-item.active{background:var(--accent-dim);border-left-color:var(--accent);color:var(--accent);}
+.nav-badge{margin-left:auto;font-size:10px;font-family:var(--font-mono);padding:1px 6px;border-radius:3px;}
+.nb-danger{background:var(--danger);color:#fff;}
+.nb-warn{background:var(--warn);color:#000;}
+.nb-ok{background:var(--success);color:#000;}
+.nb-info{background:var(--info);color:#000;}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.topbar{height:50px;flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;}
+.topbar-title{font-family:var(--font-display);font-size:17px;font-weight:600;letter-spacing:1px;}
+.topbar-env{font-family:var(--font-mono);font-size:10px;padding:3px 9px;border:1px solid var(--accent);color:var(--accent);border-radius:3px;letter-spacing:1px;}
+.topbar-sep{flex:1;}
+.topbar-clock{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);}
+.btn{border:none;padding:7px 14px;font-family:var(--font-display);font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer;border-radius:3px;text-transform:uppercase;transition:all 0.15s;}
+.btn-accent{background:var(--accent);color:#041a15;}.btn-accent:hover{background:var(--accent2);transform:translateY(-1px);}
+.btn-outline{background:transparent;color:var(--text-secondary);border:1px solid var(--border2);}.btn-outline:hover{border-color:var(--accent);color:var(--accent);}
+.btn-warn{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(245,158,11,0.3);}.btn-warn:hover{background:rgba(245,158,11,0.25);}
+.btn-sm{padding:5px 10px;font-size:11px;}
+.power-line{height:1px;background:linear-gradient(90deg,transparent,var(--accent),var(--info),var(--warn),transparent);opacity:0.3;flex-shrink:0;}
+
+/* CONTENT */
+.content{flex:1;overflow-y:auto;display:flex;flex-direction:column;}
+
+/* REVIEW ALERT BANNER */
+.review-banner{background:var(--warn-dim);border-bottom:1px solid rgba(245,158,11,0.3);padding:10px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;}
+.rb-icon{font-size:16px;}
+.rb-text{font-size:12px;color:var(--warn);flex:1;}
+.rb-text strong{font-weight:600;}
+
+/* TABS */
+.tab-bar{display:flex;align-items:center;gap:0;background:var(--panel);border-bottom:1px solid var(--border);padding:0 20px;flex-shrink:0;overflow-x:auto;}
+.tab-item{display:flex;align-items:center;gap:7px;padding:12px 16px;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-secondary);font-size:13px;font-weight:500;white-space:nowrap;transition:all 0.15s;}
+.tab-item:hover{color:var(--text-primary);}
+.tab-item.active{border-bottom-color:var(--accent);color:var(--accent);}
+.tab-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.tab-count{font-family:var(--font-mono);font-size:10px;padding:1px 6px;border-radius:10px;background:var(--border);}
+.tab-item.active .tab-count{background:var(--accent-dim);color:var(--accent);}
+
+/* TOOLBAR */
+.toolbar{display:flex;align-items:center;gap:10px;padding:12px 20px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
+.search-box{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:3px;padding:6px 12px;flex:1;min-width:200px;}
+.search-box input{background:none;border:none;color:var(--text-primary);font-family:var(--font-body);font-size:13px;outline:none;width:100%;}
+.search-box input::placeholder{color:var(--text-muted);}
+.filter-sel{background:var(--bg3);border:1px solid var(--border2);color:var(--text-secondary);padding:6px 10px;font-family:var(--font-mono);font-size:11px;border-radius:3px;cursor:pointer;outline:none;}
+.filter-sel option{background:var(--bg3);}
+.ci-count-badge{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);white-space:nowrap;}
+
+/* REVIEW STATS ROW */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px 20px;flex-shrink:0;}
+.stat-mini{background:var(--panel);border:1px solid var(--border);padding:12px 14px;position:relative;overflow:hidden;}
+.sm-num{font-family:var(--font-display);font-size:26px;font-weight:700;line-height:1;}
+.sm-label{font-size:11px;color:var(--text-secondary);margin-top:3px;}
+.sm-sub{font-family:var(--font-mono);font-size:10px;margin-top:6px;}
+
+/* CI TABLE */
+.ci-table-wrap{flex:1;overflow-y:auto;padding:0 20px 20px;}
+.ci-category-block{margin-bottom:20px;}
+.cat-header{display:flex;align-items:center;gap:10px;padding:10px 0 8px;border-bottom:1px solid var(--border);margin-bottom:10px;cursor:pointer;user-select:none;}
+.cat-icon{font-size:16px;}
+.cat-name{font-family:var(--font-display);font-size:15px;font-weight:600;letter-spacing:1px;text-transform:uppercase;}
+.cat-count{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);padding:2px 8px;border:1px solid var(--border);border-radius:10px;}
+.cat-toggle{margin-left:auto;font-size:12px;color:var(--text-muted);transition:transform 0.2s;}
+.cat-header.collapsed .cat-toggle{transform:rotate(-90deg);}
+
+table{width:100%;border-collapse:collapse;}
+thead th{background:var(--bg3);padding:8px 12px;text-align:left;font-family:var(--font-mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:2;}
+tbody tr{border-bottom:1px solid var(--border);transition:background 0.12s;cursor:pointer;}
+tbody tr:hover{background:var(--accent-dim);}
+tbody tr:last-child{border-bottom:none;}
+tbody td{padding:9px 12px;font-size:12px;color:var(--text-secondary);vertical-align:middle;white-space:nowrap;}
+.td-name{color:var(--text-primary);font-weight:500;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.td-mono{font-family:var(--font-mono);font-size:10px;}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:9px;padding:2px 7px;border-radius:2px;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;}
+.badge-crit{background:var(--danger-dim);color:var(--danger);}
+.badge-high{background:var(--warn-dim);color:var(--warn);}
+.badge-med{background:var(--info-dim);color:var(--info);}
+.badge-low{background:var(--success-dim);color:var(--success);}
+.badge-ot{background:rgba(245,158,11,0.15);color:#f59e0b;}
+.badge-it{background:var(--info-dim);color:var(--info);}
+.badge-saas{background:var(--purple-dim);color:var(--purple);}
+.badge-infra{background:rgba(100,100,100,0.2);color:#aaa;}
+
+/* REVIEW STATUS */
+.review-ok{color:var(--success);font-family:var(--font-mono);font-size:10px;}
+.review-due{color:var(--warn);font-family:var(--font-mono);font-size:10px;}
+.review-overdue{color:var(--danger);font-family:var(--font-mono);font-size:10px;animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0.5;}}
+.review-btn{background:none;border:1px solid var(--border2);color:var(--text-muted);padding:3px 8px;font-family:var(--font-mono);font-size:9px;cursor:pointer;border-radius:2px;transition:all 0.15s;text-transform:uppercase;}
+.review-btn:hover{border-color:var(--accent);color:var(--accent);}
+.review-btn.reviewed{border-color:var(--success);color:var(--success);background:var(--success-dim);}
+
+/* DOMAIN TABS */
+.dtab{display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 20px;background:var(--bg3);flex-shrink:0;overflow-x:auto;}
+.dtab-item{padding:10px 14px;cursor:pointer;border-bottom:2px solid transparent;font-size:12px;font-weight:500;color:var(--text-secondary);transition:all 0.15s;white-space:nowrap;display:flex;align-items:center;gap:6px;}
+.dtab-item:hover{color:var(--text-primary);}
+.dtab-item.active{border-bottom-width:2px;color:var(--text-primary);}
+.dtab-item.active.gen{border-bottom-color:var(--gen);color:var(--gen);}
+.dtab-item.active.tx{border-bottom-color:var(--tx);color:var(--tx);}
+.dtab-item.active.dx{border-bottom-color:var(--dx);color:var(--dx);}
+.dtab-item.active.bill{border-bottom-color:var(--bill);color:var(--bill);}
+.dtab-item.active.cx{border-bottom-color:var(--cx);color:var(--cx);}
+.dtab-item.active.all{border-bottom-color:var(--accent);color:var(--accent);}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:100;display:none;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--panel);border:1px solid var(--border2);width:700px;max-width:95vw;max-height:90vh;overflow-y:auto;position:relative;animation:modalIn 0.25s ease;}
+@keyframes modalIn{from{opacity:0;transform:scale(0.96)translateY(10px);}to{opacity:1;transform:scale(1)translateY(0);}}
+.modal-header{padding:16px 20px;border-bottom:1px solid var(--border);background:var(--bg3);display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:2;}
+.modal-title{font-family:var(--font-display);font-size:16px;font-weight:600;letter-spacing:1px;text-transform:uppercase;}
+.modal-close{margin-left:auto;background:none;border:1px solid var(--border2);color:var(--text-muted);width:28px;height:28px;cursor:pointer;border-radius:2px;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
+.modal-close:hover{border-color:var(--danger);color:var(--danger);}
+.modal-body{padding:20px;}
+.form-group{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;}
+.form-group-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-group-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.form-label{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);}
+.form-input,.form-select,.form-textarea{background:var(--bg3);border:1px solid var(--border2);color:var(--text-primary);padding:8px 11px;font-family:var(--font-body);font-size:13px;border-radius:2px;outline:none;transition:border-color 0.15s;width:100%;}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-dim);}
+.form-select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%234a7a72' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;}
+.form-select option{background:var(--bg3);}
+.form-textarea{resize:vertical;min-height:70px;line-height:1.5;}
+.modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;position:sticky;bottom:0;background:var(--panel);}
+
+/* SECTION DIVIDER IN MODAL */
+.modal-section{font-family:var(--font-mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);padding:10px 0 8px;border-bottom:1px solid var(--border);margin-bottom:14px;}
+
+/* REVIEW MODAL */
+.review-summary{background:var(--bg3);border:1px solid var(--border);padding:14px;margin-bottom:14px;}
+.rs-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.rs-row:last-child{border-bottom:none;}
+.rs-key{color:var(--text-muted);}
+.rs-val{color:var(--text-primary);font-weight:500;}
+
+/* IMPORT ZONE */
+.import-zone{border:2px dashed var(--border2);border-radius:4px;padding:32px;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:14px;}
+.import-zone:hover,.import-zone.drag-over{border-color:var(--accent);background:var(--accent-dim);}
+.import-zone-icon{font-size:32px;margin-bottom:10px;}
+.import-zone-text{font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);}
+.import-zone-sub{font-size:11px;color:var(--text-muted);margin-top:4px;}
+
+/* OVERDUE HIGHLIGHT */
+tbody tr.overdue{background:rgba(239,68,68,0.04);}
+tbody tr.due-soon{background:rgba(245,158,11,0.04);}
+
+/* COMPLIANCE TAGS */
+.comp-tag{font-family:var(--font-mono);font-size:8px;padding:1px 5px;border-radius:2px;border:1px solid;margin-right:3px;margin-bottom:2px;display:inline-block;}
+.comp-nerc{border-color:rgba(239,68,68,0.4);color:var(--danger);}
+.comp-sox{border-color:rgba(245,158,11,0.4);color:var(--warn);}
+.comp-iec{border-color:rgba(56,189,248,0.4);color:var(--info);}
+.comp-ferc{border-color:rgba(167,139,250,0.4);color:var(--purple);}
 .comp-iso{border-color:rgba(34,197,94,0.4);color:var(--success);}
 .comp-gdpr{border-color:rgba(0,229,176,0.4);color:var(--accent);}
 
@@ -28,31 +219,116 @@
 /* SCROLLBAR */
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-track{background:var(--bg);}
-@@ -297,52 +321,116 @@
-</div>
-</div>
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+::-webkit-scrollbar-thumb:hover{background:var(--accent);}
 
-  <!-- DOMAIN TABS -->
-  <div class="dtab" id="domain-tabs">
-    <div class="dtab-item active all" onclick="switchDomain('all',this)">⚡ All Domains <span id="tab-count-all" class="tab-count">0</span></div>
-    <div class="dtab-item gen" onclick="switchDomain('gen',this)">🔥 Generation <span id="tab-count-gen" class="tab-count">0</span></div>
-    <div class="dtab-item tx" onclick="switchDomain('tx',this)">🔌 Transmission <span id="tab-count-tx" class="tab-count">0</span></div>
-    <div class="dtab-item dx" onclick="switchDomain('dx',this)">🏘️ Distribution <span id="tab-count-dx" class="tab-count">0</span></div>
-    <div class="dtab-item bill" onclick="switchDomain('bill',this)">💳 Billing <span id="tab-count-bill" class="tab-count">0</span></div>
-    <div class="dtab-item cx" onclick="switchDomain('cx',this)">🎧 Customer Care <span id="tab-count-cx" class="tab-count">0</span></div>
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg3);border:1px solid var(--border2);padding:12px 18px;font-family:var(--font-mono);font-size:12px;color:var(--text-primary);z-index:200;border-radius:3px;transform:translateY(80px);opacity:0;transition:all 0.3s;border-left:3px solid var(--accent);}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.error{border-left-color:var(--danger);}
+.toast.warn{border-left-color:var(--warn);}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo-area">
+    <div class="logo-mark">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+        <polygon points="16,2 28,10 28,22 16,30 4,22 4,10" fill="none" stroke="#00e5b0" stroke-width="1.5"/>
+        <polygon points="16,8 22,12 22,20 16,24 10,20 10,12" fill="rgba(0,229,176,0.10)" stroke="#00e5b0" stroke-width="1"/>
+        <circle cx="16" cy="16" r="3" fill="#00e5b0"/>
+      </svg>
+      <span class="logo-name">GridFlow</span>
+    </div>
+    <div class="logo-sub">Release Ops Platform</div>
+  </div>
+  <nav class="nav">
+    <div class="nav-section">
+      <div class="nav-label">Operations</div>
+      <div class="nav-item">⚡ Dashboard</div>
+      <div class="nav-item">🚀 New Release</div>
+      <div class="nav-item">🔁 Pipelines</div>
+      <div class="nav-item">📋 Approvals <span class="nav-badge nb-warn">5</span></div>
+      <div class="nav-item">↩️ Rollbacks</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Configuration</div>
+      <div class="nav-item active">🗄️ CI Registry <span class="nav-badge nb-danger" id="nav-overdue-count">0</span></div>
+      <div class="nav-item">🔗 Integrations Map</div>
+      <div class="nav-item">🌐 Network Topology</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Domains</div>
+      <div class="nav-item">🔥 Generation</div>
+      <div class="nav-item">🔌 Transmission</div>
+      <div class="nav-item">🏘️ Distribution</div>
+      <div class="nav-item">💳 Billing</div>
+      <div class="nav-item">🎧 Customer Care</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Governance</div>
+      <div class="nav-item">🛡️ Compliance</div>
+      <div class="nav-item">📊 Analytics</div>
+      <div class="nav-item">⚙️ Settings</div>
+    </div>
+  </nav>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <span class="topbar-title">Configuration Item Registry</span>
+    <span class="topbar-env">CMDB v1.0</span>
+    <div class="topbar-sep"></div>
+    <span class="topbar-clock" id="clock">--:--:-- UTC</span>
+    <button class="btn btn-outline btn-sm" onclick="openImportModal()">⬆ Import CSV</button>
+    <button class="btn btn-outline btn-sm" onclick="exportCSV()">⬇ Export</button>
+    <button class="btn btn-accent btn-sm" onclick="openAddModal()">+ Add CI</button>
+  </div>
+  <div class="power-line"></div>
+
+  <!-- REVIEW ALERT BANNER -->
+  <div class="review-banner" id="review-banner" style="display:none;">
+    <span class="rb-icon">⚠️</span>
+    <span class="rb-text" id="review-banner-text"></span>
+    <button class="btn btn-warn btn-sm" onclick="showOverdueOnly()">View Overdue →</button>
+  </div>
+
+  <!-- REVIEW STATS -->
+  <div class="stats-row">
+    <div class="stat-mini">
+      <div class="sm-num" id="stat-total" style="color:var(--accent)">0</div>
+      <div class="sm-label">Total Config Items</div>
+      <div class="sm-sub" style="color:var(--text-muted)">Across all domains</div>
+    </div>
+    <div class="stat-mini">
+      <div class="sm-num" id="stat-overdue" style="color:var(--danger)">0</div>
+      <div class="sm-label">Review Overdue</div>
+      <div class="sm-sub" id="stat-overdue-sub" style="color:var(--danger)"></div>
+    </div>
+    <div class="stat-mini">
+      <div class="sm-num" id="stat-due" style="color:var(--warn)">0</div>
+      <div class="sm-label">Due This Month</div>
+      <div class="sm-sub" style="color:var(--text-muted)">Review within 30 days</div>
+    </div>
+    <div class="stat-mini">
+      <div class="sm-num" id="stat-ok" style="color:var(--success)">0</div>
+      <div class="sm-label">Reviewed & Current</div>
+      <div class="sm-sub" style="color:var(--text-muted)">Up to date</div>
+    </div>
+  </div>
+
   <!-- TOP-LEVEL VIEW TABS (Registry vs Map) -->
   <div style="display:flex;align-items:center;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 20px;flex-shrink:0;">
     <div class="view-tab active" id="vtab-registry" onclick="switchView('registry')">🗄️ &nbsp;CI Registry</div>
     <div class="view-tab" id="vtab-map" onclick="switchView('map')">🌐 &nbsp;Architecture Map</div>
     <div style="flex:1"></div>
     <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:2px;">CONFIGURATION MODULE</span>
-</div>
+  </div>
 
-  <!-- TOOLBAR -->
-  <div class="toolbar">
-    <div class="search-box">
-      <span style="color:var(--text-muted);font-size:14px;">🔍</span>
-      <input type="text" id="search-input" placeholder="Search CI name, host, vendor, version..." oninput="renderTable()">
   <!-- ===== REGISTRY VIEW ===== -->
   <div id="view-registry" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
     <!-- DOMAIN TABS -->
@@ -63,32 +339,7 @@
       <div class="dtab-item dx" onclick="switchDomain('dx',this)">🏘️ Distribution <span id="tab-count-dx" class="tab-count">0</span></div>
       <div class="dtab-item bill" onclick="switchDomain('bill',this)">💳 Billing <span id="tab-count-bill" class="tab-count">0</span></div>
       <div class="dtab-item cx" onclick="switchDomain('cx',this)">🎧 Customer Care <span id="tab-count-cx" class="tab-count">0</span></div>
-</div>
-    <select class="filter-sel" id="filter-category" onchange="renderTable()">
-      <option value="">All Categories</option>
-      <option>Applications</option>
-      <option>Integrations</option>
-      <option>Server Hosts</option>
-      <option>Database Hosts</option>
-      <option>Network Components</option>
-      <option>Security & Auth</option>
-      <option>Storage & Backup</option>
-      <option>Monitoring & Logging</option>
-    </select>
-    <select class="filter-sel" id="filter-criticality" onchange="renderTable()">
-      <option value="">All Criticality</option>
-      <option>Critical</option>
-      <option>High</option>
-      <option>Medium</option>
-      <option>Low</option>
-    </select>
-    <select class="filter-sel" id="filter-review" onchange="renderTable()">
-      <option value="">All Review Status</option>
-      <option value="overdue">Overdue</option>
-      <option value="due">Due Soon</option>
-      <option value="ok">Up to Date</option>
-    </select>
-    <span class="ci-count-badge" id="ci-count-label">0 items</span>
+    </div>
 
     <!-- TOOLBAR -->
     <div class="toolbar">
@@ -125,11 +376,8 @@
 
     <!-- CI TABLE -->
     <div class="ci-table-wrap" id="ci-table-wrap"></div>
-</div>
+  </div>
 
-  <!-- CI TABLE -->
-  <div class="ci-table-wrap" id="ci-table-wrap">
-    <!-- Rendered by JS -->
   <!-- ===== ARCHITECTURE MAP VIEW ===== -->
   <div id="view-map" style="display:none;flex:1;flex-direction:column;overflow:hidden;position:relative;">
 
@@ -183,11 +431,709 @@
       <div class="leg-item-bar"><div style="width:20px;height:1px;background:#888;border-top:1px dashed #888;margin-right:5px;"></div>Indirect</div>
       <div class="leg-item-bar"><div style="width:8px;height:8px;border-radius:50%;background:var(--danger);margin-right:5px;"></div>Overdue review</div>
     </div>
+  </div>
 </div>
 </div>
+
+<!-- ===== ADD/EDIT CI MODAL ===== -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span style="font-size:18px">🗄️</span>
+      <span class="modal-title" id="modal-title">Add Configuration Item</span>
+      <button class="modal-close" onclick="closeModal('add-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section">Identity</div>
+      <div class="form-group-row">
+        <div class="form-group">
+          <label class="form-label">CI Name *</label>
+          <input class="form-input" id="f-name" placeholder="e.g. EMS Core Application">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Short Code / Alias</label>
+          <input class="form-input" id="f-alias" placeholder="e.g. EMS-CORE">
+        </div>
+      </div>
+      <div class="form-group-row3">
+        <div class="form-group">
+          <label class="form-label">Domain *</label>
+          <select class="form-select" id="f-domain">
+            <option value="gen">Generation</option>
+            <option value="tx">Transmission</option>
+            <option value="dx">Distribution</option>
+            <option value="bill">Billing</option>
+            <option value="cx">Customer Care</option>
+            <option value="shared">Shared / Enterprise</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category *</label>
+          <select class="form-select" id="f-category">
+            <option>Applications</option>
+            <option>Integrations</option>
+            <option>Server Hosts</option>
+            <option>Database Hosts</option>
+            <option>Network Components</option>
+            <option>Security & Auth</option>
+            <option>Storage & Backup</option>
+            <option>Monitoring & Logging</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">CI Type</label>
+          <select class="form-select" id="f-type">
+            <option>OT / SCADA</option>
+            <option>IT Application</option>
+            <option>SaaS</option>
+            <option>API / Microservice</option>
+            <option>Database</option>
+            <option>Server / VM</option>
+            <option>Network Device</option>
+            <option>Security Appliance</option>
+            <option>Storage</option>
+            <option>IoT / Field Device</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-section">Vendor & Version</div>
+      <div class="form-group-row3">
+        <div class="form-group">
+          <label class="form-label">Vendor / Manufacturer</label>
+          <input class="form-input" id="f-vendor" placeholder="e.g. GE Digital">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Product Name</label>
+          <input class="form-input" id="f-product" placeholder="e.g. PMAX EMS">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Current Version</label>
+          <input class="form-input" id="f-version" placeholder="e.g. v4.2.1">
+        </div>
+      </div>
+
+      <div class="modal-section">Infrastructure</div>
+      <div class="form-group-row">
+        <div class="form-group">
+          <label class="form-label">Hostname / IP</label>
+          <input class="form-input" id="f-host" placeholder="e.g. ems-prod-01.ot.util.corp">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Environment</label>
+          <select class="form-select" id="f-env">
+            <option>Production</option>
+            <option>Production OT</option>
+            <option>Staging</option>
+            <option>DR / Failover</option>
+            <option>Development</option>
+            <option>Test</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group-row3">
+        <div class="form-group">
+          <label class="form-label">Operating System</label>
+          <input class="form-input" id="f-os" placeholder="e.g. RHEL 8.6">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Database</label>
+          <input class="form-input" id="f-db" placeholder="e.g. Oracle 19c">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Location / Data Center</label>
+          <input class="form-input" id="f-location" placeholder="e.g. DC-EAST-OT">
+        </div>
+      </div>
+
+      <div class="modal-section">Ownership & Risk</div>
+      <div class="form-group-row">
+        <div class="form-group">
+          <label class="form-label">CI Owner</label>
+          <input class="form-input" id="f-owner" placeholder="e.g. R. Patel">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Support Team</label>
+          <input class="form-input" id="f-team" placeholder="e.g. OT Operations">
+        </div>
+      </div>
+      <div class="form-group-row3">
+        <div class="form-group">
+          <label class="form-label">Criticality *</label>
+          <select class="form-select" id="f-criticality">
+            <option>Critical</option>
+            <option>High</option>
+            <option>Medium</option>
+            <option>Low</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Review Cycle</label>
+          <select class="form-select" id="f-review-cycle">
+            <option value="30">Monthly (30 days)</option>
+            <option value="90" selected>Quarterly (90 days)</option>
+            <option value="180">Semi-Annual (180 days)</option>
+            <option value="365">Annual (365 days)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Last Reviewed</label>
+          <input class="form-input" id="f-last-reviewed" type="date">
+        </div>
+      </div>
+
+      <div class="modal-section">Compliance & Dependencies</div>
+      <div class="form-group">
+        <label class="form-label">Compliance Tags (select all that apply)</label>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;" id="compliance-tags">
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;"><input type="checkbox" value="NERC CIP" class="comp-cb"> <span class="comp-tag comp-nerc">NERC CIP</span></label>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;"><input type="checkbox" value="SOX" class="comp-cb"> <span class="comp-tag comp-sox">SOX</span></label>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;"><input type="checkbox" value="IEC 62351" class="comp-cb"> <span class="comp-tag comp-iec">IEC 62351</span></label>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;"><input type="checkbox" value="FERC" class="comp-cb"> <span class="comp-tag comp-ferc">FERC</span></label>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;"><input type="checkbox" value="ISO 55000" class="comp-cb"> <span class="comp-tag comp-iso">ISO 55000</span></label>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;"><input type="checkbox" value="GDPR/PII" class="comp-cb"> <span class="comp-tag comp-gdpr">GDPR/PII</span></label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Dependencies (other CI names, comma separated)</label>
+        <input class="form-input" id="f-deps" placeholder="e.g. PI Historian, SCADA Gateway, Oracle DB-01">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes / Description</label>
+        <textarea class="form-textarea" id="f-notes" placeholder="Additional context, known issues, change notes..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('add-modal')">Cancel</button>
+      <button class="btn btn-accent" onclick="saveCI()">Save Configuration Item</button>
+    </div>
+  </div>
 </div>
-@@ -1048,6 +1136,399 @@
-setTimeout(()=>t.classList.remove('show'),3500);
+
+<!-- ===== REVIEW MODAL ===== -->
+<div class="modal-overlay" id="review-modal">
+  <div class="modal" style="width:520px;">
+    <div class="modal-header">
+      <span style="font-size:18px">🔄</span>
+      <span class="modal-title">CI Review & Sync</span>
+      <button class="modal-close" onclick="closeModal('review-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="review-summary" id="review-summary-content"></div>
+      <div class="modal-section">Review Confirmation</div>
+      <div class="form-group-row">
+        <div class="form-group">
+          <label class="form-label">Reviewed By</label>
+          <input class="form-input" id="rv-reviewer" placeholder="Your name">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Review Date</label>
+          <input class="form-input" id="rv-date" type="date">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Next Review Cycle</label>
+        <select class="form-select" id="rv-cycle">
+          <option value="30">Monthly (30 days)</option>
+          <option value="90" selected>Quarterly (90 days)</option>
+          <option value="180">Semi-Annual (180 days)</option>
+          <option value="365">Annual (365 days)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Changes Found During Review</label>
+        <select class="form-select" id="rv-changes">
+          <option value="none">No changes — configuration confirmed accurate</option>
+          <option value="minor">Minor updates — version or contact changed</option>
+          <option value="major">Major changes — architecture or dependency changes</option>
+          <option value="decommission">CI to be decommissioned</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Review Notes</label>
+        <textarea class="form-textarea" id="rv-notes" placeholder="Document any observations, version updates, or changes found..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('review-modal')">Cancel</button>
+      <button class="btn btn-accent" onclick="confirmReview()">✓ Mark Reviewed</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== IMPORT MODAL ===== -->
+<div class="modal-overlay" id="import-modal">
+  <div class="modal" style="width:560px;">
+    <div class="modal-header">
+      <span style="font-size:18px">⬆️</span>
+      <span class="modal-title">Import Configuration Items</span>
+      <button class="modal-close" onclick="closeModal('import-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="import-zone" id="import-zone" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDrop(event)">
+        <div class="import-zone-icon">📂</div>
+        <div class="import-zone-text">Drop CSV file here or click to browse</div>
+        <div class="import-zone-sub">Expected columns: name, domain, category, type, vendor, version, host, env, owner, criticality, reviewCycle, lastReviewed, compliance, notes</div>
+        <input type="file" id="file-input" accept=".csv" style="display:none" onchange="handleFileSelect(event)">
+      </div>
+      <div id="import-preview" style="display:none;">
+        <div class="modal-section">Preview</div>
+        <div id="import-preview-content"></div>
+      </div>
+      <div class="modal-section">Or Download Template</div>
+      <button class="btn btn-outline" onclick="downloadTemplate()" style="width:100%">⬇ Download CSV Template</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('import-modal')">Cancel</button>
+      <button class="btn btn-accent" id="import-confirm-btn" onclick="confirmImport()" style="display:none">Import Items</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// =============================================
+// DATA — FULL UTILITY CI LIBRARY
+// =============================================
+const TODAY = new Date();
+function daysAgo(n){ const d=new Date(TODAY); d.setDate(d.getDate()-n); return d.toISOString().split('T')[0]; }
+function daysFromNow(n){ const d=new Date(TODAY); d.setDate(d.getDate()+n); return d.toISOString().split('T')[0]; }
+
+let CI_DATA = [
+// ============ GENERATION ============
+// Applications
+{id:'ci001',name:'EMS Core (GE PMAX)',alias:'EMS-CORE',domain:'gen',category:'Applications',type:'OT / SCADA',vendor:'GE Digital',product:'PMAX EMS',version:'v4.2.1',host:'ems-prod-01.ot.util.corp',env:'Production OT',os:'RHEL 8.6',db:'Oracle 19c',location:'DC-GEN-CTRL',owner:'R. Patel',team:'OT Operations',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(95),compliance:['NERC CIP','IEC 62351'],deps:'PI Historian, DCS Interface, SCADA Gateway',notes:'Primary Energy Management System. NERC CIP BES Cyber Asset.'},
+{id:'ci002',name:'PI Historian (OSIsoft)',alias:'PI-HIST',domain:'gen',category:'Applications',type:'IT Application',vendor:'AVEVA (OSIsoft)',product:'PI System',version:'v2023.1',host:'pi-srv-01.util.corp',env:'Production',os:'Windows Server 2019',db:'PI Data Archive',location:'DC-GEN-CTRL',owner:'R. Patel',team:'Data & Analytics',criticality:'High',reviewCycle:90,lastReviewed:daysAgo(30),compliance:['ISO 55000'],deps:'EMS Core, DCS Interface, Plant CMMS',notes:'Real-time plant data historian. Feeds analytics and reporting.'},
+{id:'ci003',name:'DCS Interface Layer',alias:'DCS-INTF',domain:'gen',category:'Integrations',type:'OT / SCADA',vendor:'Honeywell',product:'Experion PKS',version:'v510.2',host:'dcs-gtw-01.ot.util.corp',env:'Production OT',os:'Windows Server 2016',db:'N/A',location:'DC-GEN-CTRL',owner:'R. Patel',team:'OT Operations',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(110),compliance:['NERC CIP','IEC 62351'],deps:'EMS Core, Plant HMI',notes:'Distributed Control System gateway. Bridges OT to IT.'},
+{id:'ci004',name:'Plant CMMS (SAP PM)',alias:'CMMS-SAP',domain:'gen',category:'Applications',type:'IT Application',vendor:'SAP',product:'SAP PM / S4HANA',version:'v2023',host:'sap-prod.util.corp',env:'Production',os:'SUSE Linux 15',db:'SAP HANA 2.0',location:'DC-EAST',owner:'F. Okafor',team:'Enterprise Apps',criticality:'High',reviewCycle:180,lastReviewed:daysAgo(60),compliance:['ISO 55000','SOX'],deps:'PI Historian, GIS Assets',notes:'Plant maintenance and work order management.'},
+{id:'ci005',name:'Environmental Reporting System',alias:'ENV-RPT',domain:'gen',category:'Applications',type:'IT Application',vendor:'Intelex',product:'Environmental Mgmt',version:'v6.1',host:'env-rpt.saas.util.corp',env:'Production',os:'SaaS',db:'Cloud (AWS RDS)',location:'Cloud',owner:'C. Nguyen',team:'Environmental',criticality:'Medium',reviewCycle:180,lastReviewed:daysAgo(45),compliance:['FERC'],deps:'PI Historian',notes:'EPA and state environmental compliance reporting.'},
+{id:'ci006',name:'Fuel Management System',alias:'FUEL-MGMT',domain:'gen',category:'Applications',type:'IT Application',vendor:'Eka Software',product:'Fuel TMS',version:'v3.4',host:'fuel-mgmt.util.corp',env:'Production',os:'Windows Server 2019',db:'SQL Server 2019',location:'DC-EAST',owner:'R. Patel',team:'Generation Ops',criticality:'Medium',reviewCycle:90,lastReviewed:daysAgo(20),compliance:[],deps:'SAP PM, PI Historian',notes:'Coal, gas, and oil inventory and procurement management.'},
+{id:'ci007',name:'Unit Commitment Optimizer',alias:'UCO',domain:'gen',category:'Applications',type:'IT Application',vendor:'ABB',product:'Ability Energy Mgmt',version:'v5.0',host:'uco-prod.util.corp',env:'Production',os:'RHEL 8',db:'PostgreSQL 14',location:'DC-EAST',owner:'R. Patel',team:'Generation Ops',criticality:'High',reviewCycle:90,lastReviewed:daysAgo(75),compliance:['FERC'],deps:'EMS Core, Energy Market Interface',notes:'Optimization of generation unit commitment for dispatch.'},
+// Server Hosts
+{id:'ci008',name:'GEN-APP-SRV-01',alias:'GEN-SRV-01',domain:'gen',category:'Server Hosts',type:'Server / VM',vendor:'Dell',product:'PowerEdge R750',version:'BIOS 1.8.2',host:'gen-app-srv-01.ot.util.corp',env:'Production OT',os:'RHEL 8.6',db:'N/A',location:'DC-GEN-CTRL',owner:'R. Patel',team:'OT Operations',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(85),compliance:['NERC CIP'],deps:'EMS Core, DCS Interface',notes:'Primary OT application server. Air-gapped network segment.'},
+{id:'ci009',name:'GEN-DB-SRV-01',alias:'GEN-DB-01',domain:'gen',category:'Database Hosts',type:'Database',vendor:'Oracle',product:'Oracle DB 19c RAC',version:'19.18',host:'gen-db-01.ot.util.corp',env:'Production OT',os:'RHEL 8',db:'Oracle 19c',location:'DC-GEN-CTRL',owner:'R. Patel',team:'DBA Team',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(100),compliance:['NERC CIP'],deps:'EMS Core, PI Historian',notes:'Primary Oracle RAC cluster for OT domain.'},
+// Network
+{id:'ci010',name:'GEN OT Firewall (Palo Alto)',alias:'GEN-FW-01',domain:'gen',category:'Network Components',type:'Security Appliance',vendor:'Palo Alto Networks',product:'PA-5250',version:'PAN-OS 11.0',host:'gen-fw-01.ot.util.corp',env:'Production OT',os:'PAN-OS',db:'N/A',location:'DC-GEN-CTRL',owner:'B. Kowalski',team:'Cybersecurity',criticality:'Critical',reviewCycle:30,lastReviewed:daysAgo(25),compliance:['NERC CIP','IEC 62351'],deps:'GEN-APP-SRV-01',notes:'IT/OT boundary firewall. NERC CIP CIP-005 requirement.'},
+{id:'ci011',name:'GEN Industrial Switch (Cisco IE)',alias:'GEN-SW-01',domain:'gen',category:'Network Components',type:'Network Device',vendor:'Cisco',product:'IE-3400',version:'IOS-XE 17.9',host:'gen-sw-01.ot.util.corp',env:'Production OT',os:'IOS-XE',db:'N/A',location:'DC-GEN-CTRL',owner:'B. Kowalski',team:'Network Ops',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(50),compliance:['NERC CIP'],deps:'GEN-APP-SRV-01, GEN-DB-SRV-01',notes:'Industrial Ethernet switch for OT network segment.'},
+
+// ============ TRANSMISSION ============
+{id:'ci012',name:'SCADA / EMS Platform (ABB)',alias:'TX-SCADA',domain:'tx',category:'Applications',type:'OT / SCADA',vendor:'ABB',product:'Network Manager SCADA',version:'v3.1.2',host:'tx-scada-01.ot.util.corp',env:'Production OT',os:'RHEL 7.9',db:'Oracle 19c',location:'DC-TX-CTRL',owner:'M. Singh',team:'Transmission Ops',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(105),compliance:['NERC CIP','IEC 62351','FERC'],deps:'EMS Core, Network Model Manager, WAMS',notes:'Primary Transmission SCADA/EMS. NERC CIP BES Cyber System.'},
+{id:'ci013',name:'Network Model Manager',alias:'NMM',domain:'tx',category:'Applications',type:'OT / SCADA',vendor:'Siemens',product:'PSCAD',version:'v5.0',host:'nmm-prod.util.corp',env:'Production',os:'Windows Server 2019',db:'SQL Server 2019',location:'DC-TX-CTRL',owner:'M. Singh',team:'Transmission Planning',criticality:'High',reviewCycle:90,lastReviewed:daysAgo(40),compliance:['NERC CIP','FERC'],deps:'SCADA Platform, GIS Transmission',notes:'Real-time network model for power flow and state estimation.'},
+{id:'ci014',name:'WAMS / PMU Analytics',alias:'WAMS',domain:'tx',category:'Applications',type:'OT / SCADA',vendor:'SEL',product:'Real-Time Automation Controller',version:'v3.5.2',host:'wams-prod-01.ot.util.corp',env:'Production OT',os:'Linux (SEL)',db:'TimeSeriesDB',location:'DC-TX-CTRL',owner:'M. Singh',team:'Grid Analytics',criticality:'High',reviewCycle:90,lastReviewed:daysAgo(55),compliance:['NERC CIP'],deps:'SCADA Platform, PI Historian',notes:'Wide Area Monitoring System using Phasor Measurement Units.'},
+{id:'ci015',name:'GIS Transmission Assets',alias:'GIS-TX',domain:'tx',category:'Applications',type:'IT Application',vendor:'Esri',product:'ArcGIS Enterprise',version:'v11.1',host:'gis-tx.util.corp',env:'Production',os:'Windows Server 2022',db:'SQL Server 2022',location:'DC-EAST',owner:'M. Singh',team:'Asset Management',criticality:'Medium',reviewCycle:180,lastReviewed:daysAgo(90),compliance:['ISO 55000'],deps:'Network Model Manager',notes:'GIS for transmission line, tower, and substation assets.'},
+{id:'ci016',name:'Energy Market Interface',alias:'EMI',domain:'tx',category:'Integrations',type:'IT Application',vendor:'Ventyx (ABB)',product:'e-Terra Market',version:'v2.8',host:'emi-prod.util.corp',env:'Production',os:'RHEL 8',db:'Oracle 19c',location:'DC-EAST',owner:'M. Singh',team:'Market Operations',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(15),compliance:['FERC'],deps:'SCADA Platform, Billing Engine',notes:'ISO/RTO market scheduling, bidding, and settlement interface.'},
+// TX Servers
+{id:'ci017',name:'TX-SCADA-SRV-01',alias:'TX-SRV-01',domain:'tx',category:'Server Hosts',type:'Server / VM',vendor:'HPE',product:'ProLiant DL380 Gen10',version:'iLO5 3.0',host:'tx-scada-srv-01.ot.util.corp',env:'Production OT',os:'RHEL 7.9',db:'N/A',location:'DC-TX-CTRL',owner:'M. Singh',team:'OT Operations',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(120),compliance:['NERC CIP'],deps:'SCADA Platform',notes:'Primary SCADA application server. Redundant pair.'},
+{id:'ci018',name:'TX Historian DB (TimescaleDB)',alias:'TX-TSDB',domain:'tx',category:'Database Hosts',type:'Database',vendor:'Timescale',product:'TimescaleDB',version:'v2.11',host:'tx-tsdb-01.util.corp',env:'Production',os:'Ubuntu 22.04',db:'TimescaleDB',location:'DC-TX-CTRL',owner:'M. Singh',team:'DBA Team',criticality:'High',reviewCycle:90,lastReviewed:daysAgo(60),compliance:['NERC CIP'],deps:'WAMS, SCADA Platform',notes:'Time-series database for PMU and real-time measurement data.'},
+{id:'ci019',name:'TX OT/IT DMZ Router',alias:'TX-RTR-01',domain:'tx',category:'Network Components',type:'Network Device',vendor:'Cisco',product:'ASR 1001-X',version:'IOS-XE 17.6',host:'tx-rtr-01.ot.util.corp',env:'Production OT',os:'IOS-XE',db:'N/A',location:'DC-TX-CTRL',owner:'B. Kowalski',team:'Network Ops',criticality:'Critical',reviewCycle:30,lastReviewed:daysAgo(20),compliance:['NERC CIP'],deps:'SCADA Platform, EMI',notes:'OT/IT boundary router with MPLS for substation communications.'},
+{id:'ci020',name:'Substation RTU (SEL-3555)',alias:'RTU-SUB-A',domain:'tx',category:'Network Components',type:'IoT / Field Device',vendor:'SEL',product:'SEL-3555',version:'Firmware R143',host:'rtu-sub-a.ot.util.corp',env:'Production OT',os:'SEL RTAC',db:'N/A',location:'Substation Alpha',owner:'M. Singh',team:'Field Devices',criticality:'Critical',reviewCycle:180,lastReviewed:daysAgo(200),compliance:['NERC CIP','IEC 62351'],deps:'SCADA Platform',notes:'Remote Terminal Unit at Alpha substation. NERC CIP BES Cyber Asset.'},
+
+// ============ DISTRIBUTION ============
+{id:'ci021',name:'AMI Head-End System (Itron)',alias:'AMI-HES',domain:'dx',category:'Applications',type:'IT Application',vendor:'Itron',product:'OpenWay Riva HES',version:'v5.2.3',host:'ami-hes-prod.util.corp',env:'Production',os:'RHEL 8',db:'Oracle 19c',location:'DC-EAST',owner:'K. Wu',team:'Meter Operations',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(80),compliance:['NERC CIP','ISO 55000'],deps:'MDM, OMS, Billing Engine',notes:'Primary Advanced Metering Infrastructure head-end. 2M+ meters.'},
+{id:'ci022',name:'OMS — Outage Management',alias:'OMS',domain:'dx',category:'Applications',type:'IT Application',vendor:'GE (Vernova)',product:'ADMS OMS',version:'v6.1.0',host:'oms-prod.util.corp',env:'Production',os:'RHEL 8',db:'Oracle 19c',location:'DC-EAST',owner:'K. Wu',team:'Distribution Ops',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(35),compliance:['ISO 55000'],deps:'GIS Distribution, SCADA DX, AMI HES',notes:'Outage detection, crew dispatch, restoration tracking.'},
+{id:'ci023',name:'DMS — Distribution Mgmt',alias:'DMS',domain:'dx',category:'Applications',type:'OT / SCADA',vendor:'Schneider Electric',product:'ArcFM / ADMS',version:'v3.4.1',host:'dms-prod.ot.util.corp',env:'Production OT',os:'Windows Server 2019',db:'Oracle 19c',location:'DC-EAST',owner:'K. Wu',team:'Distribution Ops',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(70),compliance:['NERC CIP','IEC 62351'],deps:'GIS Distribution, OMS, AMI HES',notes:'Volt/VAR optimization, switching, load balancing.'},
+{id:'ci024',name:'GIS Distribution Layer (Esri)',alias:'GIS-DX',domain:'dx',category:'Applications',type:'IT Application',vendor:'Esri',product:'ArcGIS Enterprise',version:'v11.1',host:'gis-dx.util.corp',env:'Production',os:'Windows Server 2022',db:'SQL Server 2022',location:'DC-EAST',owner:'K. Wu',team:'Asset Management',criticality:'High',reviewCycle:180,lastReviewed:daysAgo(100),compliance:['ISO 55000'],deps:'OMS, DMS, AMI HES',notes:'Distribution network GIS — poles, cables, transformers, meters.'},
+{id:'ci025',name:'Mobile Field Workforce (SAP FSM)',alias:'MFW-FSM',domain:'dx',category:'Applications',type:'IT Application',vendor:'SAP',product:'Field Service Management',version:'v22.2',host:'fsm.saas.util.corp',env:'Production',os:'SaaS',db:'Cloud',location:'Cloud',owner:'D. Brown',team:'Field Operations',criticality:'High',reviewCycle:90,lastReviewed:daysAgo(22),compliance:[],deps:'OMS, GIS Distribution, CRM',notes:'Mobile app for field crew work orders, switching, outage response.'},
+{id:'ci026',name:'DERMS — DER Management',alias:'DERMS',domain:'dx',category:'Applications',type:'IT Application',vendor:'AutoGrid',product:'Flex Platform',version:'v4.1',host:'derms.saas.util.corp',env:'Production',os:'SaaS (GCP)',db:'Cloud (BigQuery)',location:'Cloud',owner:'K. Wu',team:'Grid Modernization',criticality:'High',reviewCycle:90,lastReviewed:daysAgo(55),compliance:['FERC'],deps:'AMI HES, DMS, Energy Market Interface',notes:'Distributed Energy Resource Management — solar, batteries, EVs.'},
+{id:'ci027',name:'AMI Meter Data DB (Oracle)',alias:'AMI-DB-01',domain:'dx',category:'Database Hosts',type:'Database',vendor:'Oracle',product:'Oracle Exadata',version:'21c',host:'ami-db-01.util.corp',env:'Production',os:'OEL 8',db:'Oracle Exadata',location:'DC-EAST',owner:'K. Wu',team:'DBA Team',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(85),compliance:['NERC CIP','ISO 55000'],deps:'AMI HES, MDM, Billing Engine',notes:'High-volume meter reading storage. 2M+ meters, 15-min intervals.'},
+{id:'ci028',name:'DX-APP-SRV-02 (OMS/DMS)',alias:'DX-SRV-02',domain:'dx',category:'Server Hosts',type:'Server / VM',vendor:'Dell',product:'PowerEdge R750',version:'BIOS 1.9',host:'dx-app-srv-02.util.corp',env:'Production',os:'RHEL 8',db:'N/A',location:'DC-EAST',owner:'K. Wu',team:'Infrastructure',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(130),compliance:[],deps:'OMS, DMS',notes:'Primary application server cluster for OMS/DMS.'},
+{id:'ci029',name:'Distribution MPLS WAN',alias:'DX-MPLS',domain:'dx',category:'Network Components',type:'Network Device',vendor:'Cisco',product:'NCS 5500',version:'IOS-XR 7.5',host:'dx-mpls-core.util.corp',env:'Production',os:'IOS-XR',db:'N/A',location:'DC-EAST',owner:'B. Kowalski',team:'Network Ops',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(40),compliance:[],deps:'OMS, DMS, AMI HES',notes:'MPLS core for distribution substation and field device communications.'},
+{id:'ci030',name:'Smart Meter Firmware Repository',alias:'MTR-FW',domain:'dx',category:'Security & Auth',type:'IT Application',vendor:'Itron',product:'Firmware Management',version:'v2.1',host:'mtr-fw.util.corp',env:'Production',os:'RHEL 8',db:'PostgreSQL',location:'DC-EAST',owner:'K. Wu',team:'Meter Operations',criticality:'High',reviewCycle:90,lastReviewed:daysAgo(45),compliance:['NERC CIP'],deps:'AMI HES',notes:'Secure firmware distribution for 2M+ smart meters in the field.'},
+
+// ============ BILLING ============
+{id:'ci031',name:'Billing Engine (Oracle CC&B)',alias:'CCB',domain:'bill',category:'Applications',type:'IT Application',vendor:'Oracle',product:'Customer Care & Billing',version:'v2.8.0.1',host:'ccb-prod.util.corp',env:'Production',os:'RHEL 8',db:'Oracle 19c',location:'DC-EAST',owner:'A. Torres',team:'Billing Systems',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(92),compliance:['SOX','GDPR/PII'],deps:'MDM, Rate Engine, Payment Gateway, CIS',notes:'Core customer billing system. Processes 500K+ monthly bills.'},
+{id:'ci032',name:'MDM — Meter Data Mgmt',alias:'MDM',domain:'bill',category:'Applications',type:'IT Application',vendor:'Itron',product:'MDM Analytics',version:'v6.3',host:'mdm-prod.util.corp',env:'Production',os:'RHEL 8',db:'Oracle 19c',location:'DC-EAST',owner:'A. Torres',team:'Billing Systems',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(18),compliance:['SOX','ISO 55000'],deps:'AMI HES, Billing Engine, Rate Engine',notes:'Meter data management — validation, estimation, editing (VEE).'},
+{id:'ci033',name:'Rate Engine API',alias:'RATE-ENG',domain:'bill',category:'Applications',type:'API / Microservice',vendor:'Custom (Internal)',product:'Rate Engine v2',version:'v1.6.0',host:'rate-eng.util.corp',env:'Production',os:'RHEL 8',db:'PostgreSQL 15',location:'DC-EAST',owner:'A. Torres',team:'Billing Systems',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(10),compliance:['FERC','SOX'],deps:'Billing Engine, CIS Portal, FERC Tariff DB',notes:'Dynamic rate calculation engine. Handles TOU, tiered, EV rates.'},
+{id:'ci034',name:'Payment Gateway (Worldpay)',alias:'PAY-GTW',domain:'bill',category:'Integrations',type:'SaaS',vendor:'Worldpay / FIS',product:'Payment Processing',version:'API v3.4',host:'api.worldpay.saas',env:'Production',os:'SaaS',db:'N/A',location:'Cloud (PCI Zone)',owner:'A. Torres',team:'Billing Systems',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(30),compliance:['SOX','GDPR/PII'],deps:'Billing Engine, CIS Portal, Mobile App',notes:'Credit card, ACH, and digital payment processing. PCI-DSS compliant.'},
+{id:'ci035',name:'Bill Print & Presentment',alias:'BILL-PRINT',domain:'bill',category:'Applications',type:'IT Application',vendor:'Quadient',product:'Inspire Flex',version:'v16.4',host:'billprint.util.corp',env:'Production',os:'Windows Server 2019',db:'SQL Server 2019',location:'DC-EAST',owner:'A. Torres',team:'Billing Systems',criticality:'High',reviewCycle:180,lastReviewed:daysAgo(120),compliance:['GDPR/PII'],deps:'Billing Engine, CIS Portal',notes:'Monthly bill generation, print, and eBill delivery system.'},
+{id:'ci036',name:'Revenue Protection System',alias:'REV-PROT',domain:'bill',category:'Applications',type:'IT Application',vendor:'Elster (Honeywell)',product:'Revenue Guard',version:'v4.2',host:'rev-prot.util.corp',env:'Production',os:'Windows Server 2019',db:'SQL Server 2019',location:'DC-EAST',owner:'A. Torres',team:'Revenue Assurance',criticality:'High',reviewCycle:90,lastReviewed:daysAgo(60),compliance:['SOX'],deps:'AMI HES, MDM, GIS Distribution',notes:'Theft detection and revenue loss prevention via meter analytics.'},
+{id:'ci037',name:'BILL-DB-PROD-01 (Oracle RAC)',alias:'BILL-DB-01',domain:'bill',category:'Database Hosts',type:'Database',vendor:'Oracle',product:'Oracle RAC 19c',version:'19.18',host:'bill-db-01.util.corp',env:'Production',os:'OEL 8',db:'Oracle RAC 19c',location:'DC-EAST',owner:'A. Torres',team:'DBA Team',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(78),compliance:['SOX','GDPR/PII'],deps:'Billing Engine, MDM, Rate Engine',notes:'Primary billing Oracle RAC. DR standby at DC-WEST.'},
+{id:'ci038',name:'BILL-APP-SRV-01',alias:'BILL-SRV-01',domain:'bill',category:'Server Hosts',type:'Server / VM',vendor:'HPE',product:'ProLiant DL580 Gen10',version:'iLO5',host:'bill-app-srv-01.util.corp',env:'Production',os:'RHEL 8',db:'N/A',location:'DC-EAST',owner:'A. Torres',team:'Infrastructure',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(95),compliance:['SOX'],deps:'Billing Engine, MDM',notes:'Primary billing application server. 128-core, 512GB RAM.'},
+{id:'ci039',name:'Billing Network Load Balancer',alias:'BILL-LB',domain:'bill',category:'Network Components',type:'Network Device',vendor:'F5',product:'BIG-IP LTM',version:'v17.1',host:'bill-lb-01.util.corp',env:'Production',os:'TMOS',db:'N/A',location:'DC-EAST',owner:'B. Kowalski',team:'Network Ops',criticality:'High',reviewCycle:90,lastReviewed:daysAgo(45),compliance:['SOX'],deps:'Billing Engine, CIS Portal, Rate Engine',notes:'Application delivery controller for billing web services.'},
+{id:'ci040',name:'RECs / Green Energy Tracker',alias:'REC-TRACK',domain:'bill',category:'Applications',type:'IT Application',vendor:'APX (Xpansiv)',product:'WREGIS Interface',version:'v2.1',host:'rec-track.util.corp',env:'Production',os:'RHEL 7',db:'PostgreSQL',location:'DC-EAST',owner:'C. Nguyen',team:'Regulatory',criticality:'Medium',reviewCycle:180,lastReviewed:daysAgo(150),compliance:['FERC'],deps:'Billing Engine, Environmental Reporting',notes:'Renewable Energy Certificate tracking and WREGIS reporting.'},
+
+// ============ CUSTOMER CARE ============
+{id:'ci041',name:'CRM (Salesforce Utility Cloud)',alias:'CRM-SF',domain:'cx',category:'Applications',type:'SaaS',vendor:'Salesforce',product:'Utility Cloud / Energy & Utilities',version:'Spring 26',host:'util.my.salesforce.com',env:'Production',os:'SaaS',db:'Salesforce DB',location:'Cloud (US-EAST)',owner:'J. Chen',team:'Customer Experience',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(15),compliance:['GDPR/PII','SOX'],deps:'Billing Engine, OMS, CIS Portal, IVR',notes:'Primary CRM. 1200+ agents. Customer 360 for 500K accounts.'},
+{id:'ci042',name:'CIS / Self-Service Portal',alias:'CIS-WEB',domain:'cx',category:'Applications',type:'IT Application',vendor:'Oracle',product:'CC&B Customer Portal',version:'v5.2.0',host:'myaccount.util.com',env:'Production',os:'RHEL 8',db:'Oracle 19c',location:'DC-EAST',owner:'J. Chen',team:'Digital Channels',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(88),compliance:['GDPR/PII'],deps:'Billing Engine, Payment Gateway, CRM',notes:'Customer self-service web portal. 200K+ active users.'},
+{id:'ci043',name:'IVR / Contact Center (Genesys)',alias:'IVR-CC',domain:'cx',category:'Applications',type:'IT Application',vendor:'Genesys',product:'Cloud CX',version:'v8.1',host:'util.genesys.cloud',env:'Production',os:'SaaS',db:'Cloud',location:'Cloud',owner:'L. Garcia',team:'Contact Center',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(22),compliance:['GDPR/PII'],deps:'CRM, Billing Engine, OMS',notes:'IVR, call routing, and agent desktop for 1200 agents.'},
+{id:'ci044',name:'Mobile App (Customer-Facing)',alias:'MOB-CX',domain:'cx',category:'Applications',type:'IT Application',vendor:'Custom (Internal)',product:'MyUtil Mobile',version:'v4.2.1',host:'api.myutil.com',env:'Production',os:'iOS/Android + API',db:'N/A',location:'Cloud (AWS)',owner:'J. Chen',team:'Digital Channels',criticality:'High',reviewCycle:90,lastReviewed:daysAgo(44),compliance:['GDPR/PII'],deps:'CIS Portal, Billing Engine, Payment Gateway, OMS',notes:'Customer mobile app. 120K+ active users. Outage reporting, bill pay.'},
+{id:'ci045',name:'Outage Notification System',alias:'ONS',domain:'cx',category:'Integrations',type:'IT Application',vendor:'Xtreme One (Digi)',product:'Notifi',version:'v3.5',host:'notifi.saas.util.corp',env:'Production',os:'SaaS',db:'Cloud',location:'Cloud',owner:'J. Chen',team:'Customer Experience',criticality:'High',reviewCycle:90,lastReviewed:daysAgo(55),compliance:[],deps:'OMS, CRM, Mobile App',notes:'Automated SMS/email/voice outage and restoration notifications.'},
+{id:'ci046',name:'AI Chatbot (Azure OpenAI)',alias:'CHATBOT',domain:'cx',category:'Applications',type:'SaaS',vendor:'Microsoft / Azure',product:'Azure OpenAI + Bot Framework',version:'GPT-4o API',host:'util-bot.azurewebsites.net',env:'Production',os:'Azure App Service',db:'Azure Cosmos DB',location:'Cloud (Azure East US)',owner:'J. Chen',team:'Digital Innovation',criticality:'Medium',reviewCycle:90,lastReviewed:daysAgo(12),compliance:['GDPR/PII'],deps:'CRM, Billing Engine, OMS',notes:'AI customer service chatbot. Handles 30% of tier-1 inquiries.'},
+{id:'ci047',name:'CX-DB-PROD-01 (SQL Server)',alias:'CX-DB-01',domain:'cx',category:'Database Hosts',type:'Database',vendor:'Microsoft',product:'SQL Server 2022 AG',version:'16.0.1000',host:'cx-db-01.util.corp',env:'Production',os:'Windows Server 2022',db:'SQL Server 2022',location:'DC-EAST',owner:'J. Chen',team:'DBA Team',criticality:'High',reviewCycle:90,lastReviewed:daysAgo(70),compliance:['GDPR/PII','SOX'],deps:'CIS Portal, CRM Integration Layer',notes:'SQL Server Always-On for CIS web portal data.'},
+{id:'ci048',name:'CX-APP-SRV-01 (Web Cluster)',alias:'CX-SRV-01',domain:'cx',category:'Server Hosts',type:'Server / VM',vendor:'VMware (VM)',product:'vSphere 8.0',version:'ESXi 8.0U1',host:'cx-app-srv-01.util.corp',env:'Production',os:'RHEL 8',db:'N/A',location:'DC-EAST',owner:'J. Chen',team:'Infrastructure',criticality:'High',reviewCycle:90,lastReviewed:daysAgo(66),compliance:[],deps:'CIS Portal, ONS',notes:'VMware cluster for CX web applications. 8-node HA cluster.'},
+{id:'ci049',name:'Customer Data CDN (Akamai)',alias:'CDN-CX',domain:'cx',category:'Network Components',type:'Network Device',vendor:'Akamai',product:'Ion Premier',version:'N/A',host:'cx.util.com.akamai.net',env:'Production',os:'SaaS',db:'N/A',location:'Edge (Global)',owner:'B. Kowalski',team:'Network Ops',criticality:'Medium',reviewCycle:180,lastReviewed:daysAgo(90),compliance:['GDPR/PII'],deps:'CIS Portal, Mobile App',notes:'CDN for customer-facing web and mobile assets. 99.99% SLA.'},
+{id:'ci050',name:'Identity Provider (Okta)',alias:'IDP-OKTA',domain:'cx',category:'Security & Auth',type:'SaaS',vendor:'Okta',product:'Workforce Identity Cloud',version:'N/A',host:'util.okta.com',env:'Production',os:'SaaS',db:'N/A',location:'Cloud',owner:'B. Kowalski',team:'Cybersecurity',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(8),compliance:['NERC CIP','GDPR/PII','SOX'],deps:'CRM, CIS Portal, Mobile App, IVR',notes:'Enterprise SSO and MFA. All user authentication routes through Okta.'},
+
+// Shared/Enterprise
+{id:'ci051',name:'Enterprise Monitoring (Dynatrace)',alias:'DYNATRACE',domain:'cx',category:'Monitoring & Logging',type:'SaaS',vendor:'Dynatrace',product:'Full Stack Monitoring',version:'N/A',host:'util.live.dynatrace.com',env:'Production',os:'SaaS',db:'Cloud',location:'Cloud',owner:'B. Kowalski',team:'SRE / Ops',criticality:'High',reviewCycle:90,lastReviewed:daysAgo(14),compliance:[],deps:'All production apps',notes:'Full-stack APM, infrastructure monitoring, and AI-powered alerts.'},
+{id:'ci052',name:'SIEM (Splunk Enterprise)',alias:'SPLUNK',domain:'cx',category:'Monitoring & Logging',type:'IT Application',vendor:'Splunk',product:'Enterprise Security',version:'v9.2',host:'splunk-idx.util.corp',env:'Production',os:'RHEL 8',db:'Splunk Index',location:'DC-EAST',owner:'B. Kowalski',team:'Cybersecurity',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(33),compliance:['NERC CIP','SOX'],deps:'All infrastructure',notes:'SIEM for security event monitoring. NERC CIP CIP-007 compliance.'},
+{id:'ci053',name:'Backup & DR (Commvault)',alias:'COMMVAULT',domain:'gen',category:'Storage & Backup',type:'IT Application',vendor:'Commvault',product:'Complete Data Protection',version:'v11.28',host:'cv-cs.util.corp',env:'Production',os:'Windows Server 2022',db:'SQL Server',location:'DC-EAST + DC-WEST',owner:'R. Patel',team:'Infrastructure',criticality:'High',reviewCycle:180,lastReviewed:daysAgo(140),compliance:['NERC CIP','SOX'],deps:'All servers and databases',notes:'Enterprise backup with DR replication to secondary data center.'},
+{id:'ci054',name:'Enterprise SAN (NetApp)',alias:'SAN-01',domain:'gen',category:'Storage & Backup',type:'Storage',vendor:'NetApp',product:'AFF A800',version:'ONTAP 9.13',host:'san-01.util.corp',env:'Production',os:'ONTAP',db:'N/A',location:'DC-EAST',owner:'R. Patel',team:'Infrastructure',criticality:'Critical',reviewCycle:90,lastReviewed:daysAgo(50),compliance:['SOX'],deps:'All databases and app servers',notes:'Primary enterprise SAN. 2PB usable. SnapVault to DC-WEST.'},
+];
+
+// =============================================
+// STATE
+// =============================================
+let currentDomain = 'all';
+let reviewTarget = null;
+let importBuffer = [];
+
+// =============================================
+// CLOCK
+// =============================================
+function updateClock(){
+  const n=new Date();
+  document.getElementById('clock').textContent=
+    [n.getUTCHours(),n.getUTCMinutes(),n.getUTCSeconds()].map(v=>String(v).padStart(2,'0')).join(':')+' UTC';
+}
+updateClock(); setInterval(updateClock,1000);
+
+// =============================================
+// REVIEW STATUS UTILS
+// =============================================
+function getReviewStatus(ci){
+  if(!ci.lastReviewed) return {status:'overdue',label:'Never Reviewed',days:9999};
+  const last=new Date(ci.lastReviewed);
+  const nextDue=new Date(last);
+  nextDue.setDate(nextDue.getDate()+Number(ci.reviewCycle||90));
+  const now=new Date();
+  const daysUntil=Math.floor((nextDue-now)/(1000*60*60*24));
+  if(daysUntil<0) return {status:'overdue',label:`Overdue ${Math.abs(daysUntil)}d`,days:daysUntil};
+  if(daysUntil<=30) return {status:'due',label:`Due in ${daysUntil}d`,days:daysUntil};
+  return {status:'ok',label:`OK — ${daysUntil}d left`,days:daysUntil};
+}
+
+function formatDate(d){ if(!d) return 'Never'; return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+
+// =============================================
+// STATS
+// =============================================
+function updateStats(){
+  const visible = currentDomain==='all' ? CI_DATA : CI_DATA.filter(c=>c.domain===currentDomain);
+  let ov=0,due=0,ok=0;
+  CI_DATA.forEach(c=>{const s=getReviewStatus(c);if(s.status==='overdue')ov++;else if(s.status==='due')due++;else ok++;});
+  document.getElementById('stat-total').textContent=CI_DATA.length;
+  document.getElementById('stat-overdue').textContent=ov;
+  document.getElementById('stat-due').textContent=due;
+  document.getElementById('stat-ok').textContent=ok;
+  document.getElementById('stat-overdue-sub').textContent=ov>0?`${ov} CIs past review date`:'All reviewed on time';
+  document.getElementById('nav-overdue-count').textContent=ov;
+
+  // Domain tab counts
+  ['gen','tx','dx','bill','cx'].forEach(d=>{
+    document.getElementById('tab-count-'+d).textContent=CI_DATA.filter(c=>c.domain===d).length;
+  });
+  document.getElementById('tab-count-all').textContent=CI_DATA.length;
+
+  // Banner
+  if(ov>0){
+    document.getElementById('review-banner').style.display='flex';
+    document.getElementById('review-banner-text').innerHTML=
+      `<strong>${ov} configuration item${ov!==1?'s':''} are overdue for review.</strong> Periodic sync ensures CMDB accuracy and regulatory compliance. Please review and confirm these CIs.`;
+  } else {
+    document.getElementById('review-banner').style.display='none';
+  }
+}
+
+// =============================================
+// RENDER TABLE
+// =============================================
+const CATEGORIES = ['Applications','Integrations','Server Hosts','Database Hosts','Network Components','Security & Auth','Storage & Backup','Monitoring & Logging'];
+const CAT_ICONS = {Applications:'💻',Integrations:'🔗','Server Hosts':'🖥️','Database Hosts':'🗃️','Network Components':'🌐','Security & Auth':'🛡️','Storage & Backup':'💾','Monitoring & Logging':'📊'};
+const CRIT_CLASS = {Critical:'badge-crit',High:'badge-high',Medium:'badge-med',Low:'badge-low'};
+const COMP_CLASS = {'NERC CIP':'comp-nerc','SOX':'comp-sox','IEC 62351':'comp-iec','FERC':'comp-ferc','ISO 55000':'comp-iso','GDPR/PII':'comp-gdpr'};
+
+function renderTable(){
+  const search=(document.getElementById('search-input').value||'').toLowerCase();
+  const filterCat=document.getElementById('filter-category').value;
+  const filterCrit=document.getElementById('filter-criticality').value;
+  const filterReview=document.getElementById('filter-review').value;
+
+  let data=CI_DATA.filter(c=>{
+    if(currentDomain!=='all'&&c.domain!==currentDomain) return false;
+    if(filterCat&&c.category!==filterCat) return false;
+    if(filterCrit&&c.criticality!==filterCrit) return false;
+    if(filterReview){const s=getReviewStatus(c);if(s.status!==filterReview)return false;}
+    if(search){
+      const hay=[c.name,c.alias,c.vendor,c.product,c.host,c.version,c.owner,c.team,c.category,c.type].join(' ').toLowerCase();
+      if(!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  document.getElementById('ci-count-label').textContent=`${data.length} item${data.length!==1?'s':''}`;
+
+  // Group by category
+  const grouped={};
+  CATEGORIES.forEach(cat=>{ grouped[cat]=data.filter(c=>c.category===cat); });
+
+  let html='';
+  CATEGORIES.forEach(cat=>{
+    const items=grouped[cat];
+    if(!items.length) return;
+    html+=`<div class="ci-category-block">
+      <div class="cat-header" onclick="toggleCategory(this)">
+        <span class="cat-icon">${CAT_ICONS[cat]||'📦'}</span>
+        <span class="cat-name">${cat}</span>
+        <span class="cat-count">${items.length}</span>
+        <span class="cat-toggle">▼</span>
+      </div>
+      <div class="cat-body">
+      <table>
+        <thead><tr>
+          <th>CI Name</th><th>Domain</th><th>Type</th><th>Vendor / Product</th>
+          <th>Version</th><th>Host / Endpoint</th><th>Owner</th>
+          <th>Criticality</th><th>Compliance</th><th>Last Reviewed</th>
+          <th>Review Status</th><th>Actions</th>
+        </tr></thead>
+        <tbody>`;
+    items.forEach(c=>{
+      const rs=getReviewStatus(c);
+      const rowClass=rs.status==='overdue'?'overdue':rs.status==='due'?'due-soon':'';
+      const domainColor={gen:'var(--gen)',tx:'var(--tx)',dx:'var(--dx)',bill:'var(--bill)',cx:'var(--cx)',shared:'#aaa'}[c.domain]||'#aaa';
+      const domainLabel={gen:'GEN',tx:'TX',dx:'DIST',bill:'BILL',cx:'CX',shared:'SHARED'}[c.domain]||c.domain;
+      const compTags=(c.compliance||[]).map(t=>`<span class="comp-tag ${COMP_CLASS[t]||''}">${t}</span>`).join('');
+      const rsClass={overdue:'review-overdue',due:'review-due',ok:'review-ok'}[rs.status];
+      html+=`<tr class="${rowClass}" onclick="openEditModal('${c.id}')">
+        <td class="td-name" title="${c.name}">${c.name}</td>
+        <td><span style="font-family:var(--font-mono);font-size:9px;padding:2px 6px;border-radius:2px;background:${domainColor}22;color:${domainColor}">${domainLabel}</span></td>
+        <td><span class="badge badge-${c.type.includes('OT')||c.type.includes('SCADA')?'ot':c.type.includes('SaaS')?'saas':c.type.includes('Database')?'infra':'it'}">${c.type}</span></td>
+        <td class="td-mono">${c.vendor||'—'}${c.product?'<br><span style="color:var(--text-muted)">'+c.product+'</span>':''}</td>
+        <td class="td-mono">${c.version||'—'}</td>
+        <td class="td-mono" style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${c.host||''}">${c.host||'—'}</td>
+        <td>${c.owner||'—'}</td>
+        <td><span class="badge ${CRIT_CLASS[c.criticality]||''}">${c.criticality}</span></td>
+        <td style="max-width:120px;">${compTags||'<span style="color:var(--text-muted);font-size:10px;">None</span>'}</td>
+        <td class="td-mono">${formatDate(c.lastReviewed)}</td>
+        <td class="${rsClass}">${rs.label}</td>
+        <td onclick="event.stopPropagation()">
+          <button class="review-btn${rs.status==='ok'?' reviewed':''}" onclick="openReviewModal('${c.id}')">${rs.status==='ok'?'✓ Reviewed':'⟳ Review'}</button>
+        </td>
+      </tr>`;
+    });
+    html+=`</tbody></table></div></div>`;
+  });
+
+  if(!html) html=`<div style="padding:40px;text-align:center;color:var(--text-muted);font-family:var(--font-mono);font-size:12px;">No configuration items match your filters.</div>`;
+  document.getElementById('ci-table-wrap').innerHTML=html;
+}
+
+function toggleCategory(header){
+  header.classList.toggle('collapsed');
+  const body=header.nextElementSibling;
+  body.style.display=header.classList.contains('collapsed')?'none':'block';
+}
+
+// =============================================
+// DOMAIN SWITCH
+// =============================================
+function switchDomain(domain, el){
+  currentDomain=domain;
+  document.querySelectorAll('.dtab-item').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderTable();
+}
+
+function showOverdueOnly(){
+  document.getElementById('filter-review').value='overdue';
+  renderTable();
+}
+
+// =============================================
+// MODALS
+// =============================================
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+function openAddModal(){
+  document.getElementById('modal-title').textContent='Add Configuration Item';
+  clearForm();
+  document.getElementById('f-last-reviewed').valueAsDate=new Date();
+  openModal('add-modal');
+}
+
+function openEditModal(id){
+  const ci=CI_DATA.find(c=>c.id===id);
+  if(!ci) return;
+  document.getElementById('modal-title').textContent='Edit Configuration Item';
+  document.getElementById('f-name').value=ci.name||'';
+  document.getElementById('f-alias').value=ci.alias||'';
+  document.getElementById('f-domain').value=ci.domain||'gen';
+  document.getElementById('f-category').value=ci.category||'Applications';
+  document.getElementById('f-type').value=ci.type||'IT Application';
+  document.getElementById('f-vendor').value=ci.vendor||'';
+  document.getElementById('f-product').value=ci.product||'';
+  document.getElementById('f-version').value=ci.version||'';
+  document.getElementById('f-host').value=ci.host||'';
+  document.getElementById('f-env').value=ci.env||'Production';
+  document.getElementById('f-os').value=ci.os||'';
+  document.getElementById('f-db').value=ci.db||'';
+  document.getElementById('f-location').value=ci.location||'';
+  document.getElementById('f-owner').value=ci.owner||'';
+  document.getElementById('f-team').value=ci.team||'';
+  document.getElementById('f-criticality').value=ci.criticality||'High';
+  document.getElementById('f-review-cycle').value=ci.reviewCycle||90;
+  document.getElementById('f-last-reviewed').value=ci.lastReviewed||'';
+  document.getElementById('f-deps').value=ci.deps||'';
+  document.getElementById('f-notes').value=ci.notes||'';
+  // Compliance
+  document.querySelectorAll('.comp-cb').forEach(cb=>{cb.checked=(ci.compliance||[]).includes(cb.value);});
+  // Store edit ID
+  document.getElementById('add-modal')._editId=id;
+  openModal('add-modal');
+}
+
+function clearForm(){
+  ['f-name','f-alias','f-vendor','f-product','f-version','f-host','f-os','f-db','f-location','f-owner','f-team','f-deps','f-notes'].forEach(id=>{document.getElementById(id).value='';});
+  document.querySelectorAll('.comp-cb').forEach(cb=>cb.checked=false);
+  document.getElementById('add-modal')._editId=null;
+}
+
+function saveCI(){
+  const name=document.getElementById('f-name').value.trim();
+  if(!name){showToast('CI Name is required','error');return;}
+  const compliance=Array.from(document.querySelectorAll('.comp-cb:checked')).map(cb=>cb.value);
+  const editId=document.getElementById('add-modal')._editId;
+  const ci={
+    id: editId||'ci'+Date.now(),
+    name, alias:document.getElementById('f-alias').value,
+    domain:document.getElementById('f-domain').value,
+    category:document.getElementById('f-category').value,
+    type:document.getElementById('f-type').value,
+    vendor:document.getElementById('f-vendor').value,
+    product:document.getElementById('f-product').value,
+    version:document.getElementById('f-version').value,
+    host:document.getElementById('f-host').value,
+    env:document.getElementById('f-env').value,
+    os:document.getElementById('f-os').value,
+    db:document.getElementById('f-db').value,
+    location:document.getElementById('f-location').value,
+    owner:document.getElementById('f-owner').value,
+    team:document.getElementById('f-team').value,
+    criticality:document.getElementById('f-criticality').value,
+    reviewCycle:Number(document.getElementById('f-review-cycle').value),
+    lastReviewed:document.getElementById('f-last-reviewed').value,
+    compliance,
+    deps:document.getElementById('f-deps').value,
+    notes:document.getElementById('f-notes').value
+  };
+  if(editId){ const idx=CI_DATA.findIndex(c=>c.id===editId); if(idx>=0) CI_DATA[idx]=ci; }
+  else { CI_DATA.push(ci); }
+  closeModal('add-modal');
+  updateStats(); renderTable();
+  showToast(editId?`Updated: ${name}`:`Added: ${name}`);
+}
+
+// =============================================
+// REVIEW MODAL
+// =============================================
+function openReviewModal(id){
+  reviewTarget=id;
+  const ci=CI_DATA.find(c=>c.id===id);
+  if(!ci) return;
+  const rs=getReviewStatus(ci);
+  document.getElementById('rv-reviewer').value='';
+  document.getElementById('rv-date').valueAsDate=new Date();
+  document.getElementById('rv-cycle').value=ci.reviewCycle||90;
+  document.getElementById('rv-notes').value='';
+  document.getElementById('review-summary-content').innerHTML=`
+    <div class="rs-row"><span class="rs-key">CI Name</span><span class="rs-val">${ci.name}</span></div>
+    <div class="rs-row"><span class="rs-key">Category</span><span class="rs-val">${ci.category}</span></div>
+    <div class="rs-row"><span class="rs-key">Domain</span><span class="rs-val">${{gen:'Generation',tx:'Transmission',dx:'Distribution',bill:'Billing',cx:'Customer Care'}[ci.domain]||ci.domain}</span></div>
+    <div class="rs-row"><span class="rs-key">Last Reviewed</span><span class="rs-val" style="color:${rs.status==='overdue'?'var(--danger)':'var(--text-primary)'}">${formatDate(ci.lastReviewed)}</span></div>
+    <div class="rs-row"><span class="rs-key">Review Status</span><span class="rs-val" style="color:${rs.status==='overdue'?'var(--danger)':rs.status==='due'?'var(--warn)':'var(--success)'}">${rs.label}</span></div>
+    <div class="rs-row"><span class="rs-key">Current Version</span><span class="rs-val">${ci.version||'—'}</span></div>
+    <div class="rs-row"><span class="rs-key">Owner</span><span class="rs-val">${ci.owner||'—'}</span></div>
+  `;
+  openModal('review-modal');
+}
+
+function confirmReview(){
+  const reviewer=document.getElementById('rv-reviewer').value.trim();
+  if(!reviewer){showToast('Please enter your name','error');return;}
+  const ci=CI_DATA.find(c=>c.id===reviewTarget);
+  if(!ci) return;
+  ci.lastReviewed=document.getElementById('rv-date').value;
+  ci.reviewCycle=Number(document.getElementById('rv-cycle').value);
+  const changes=document.getElementById('rv-changes').value;
+  const notes=document.getElementById('rv-notes').value;
+  if(notes) ci.notes=(ci.notes?ci.notes+'\n':'')+`[${new Date().toISOString().split('T')[0]} - ${reviewer}]: ${notes}`;
+  closeModal('review-modal');
+  updateStats(); renderTable();
+  showToast(`✓ ${ci.name} marked as reviewed by ${reviewer}`);
+}
+
+// =============================================
+// IMPORT
+// =============================================
+function openImportModal(){ openModal('import-modal'); importBuffer=[]; document.getElementById('import-preview').style.display='none'; document.getElementById('import-confirm-btn').style.display='none'; }
+
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('import-zone').classList.remove('drag-over');
+  const file=e.dataTransfer.files[0];
+  if(file) parseCSV(file);
+}
+
+function handleFileSelect(e){
+  const file=e.target.files[0];
+  if(file) parseCSV(file);
+}
+
+function parseCSV(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const lines=e.target.result.split('\n').filter(l=>l.trim());
+    const headers=lines[0].split(',').map(h=>h.trim().replace(/"/g,''));
+    importBuffer=lines.slice(1).map(line=>{
+      const vals=line.split(',').map(v=>v.trim().replace(/"/g,''));
+      const obj={id:'ci'+Date.now()+Math.random()};
+      headers.forEach((h,i)=>{obj[h]=vals[i]||'';});
+      if(typeof obj.compliance==='string') obj.compliance=obj.compliance?obj.compliance.split('|'):[]; 
+      if(obj.reviewCycle) obj.reviewCycle=Number(obj.reviewCycle)||90;
+      return obj;
+    });
+    const preview=importBuffer.slice(0,5).map(c=>`<div style="padding:6px 8px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text-secondary);">📋 <strong style="color:var(--text-primary)">${c.name||'Unnamed'}</strong> — ${c.domain||'?'} / ${c.category||'?'} / ${c.vendor||'?'}</div>`).join('');
+    document.getElementById('import-preview').style.display='block';
+    document.getElementById('import-preview-content').innerHTML=`<div style="background:var(--bg3);border:1px solid var(--border);">${preview}${importBuffer.length>5?`<div style="padding:6px 8px;font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">...and ${importBuffer.length-5} more items</div>`:''}</div><div style="margin-top:8px;font-family:var(--font-mono);font-size:11px;color:var(--accent);">${importBuffer.length} items ready to import</div>`;
+    document.getElementById('import-confirm-btn').style.display='inline-flex';
+  };
+  reader.readAsText(file);
+}
+
+function confirmImport(){
+  CI_DATA=[...CI_DATA,...importBuffer];
+  closeModal('import-modal');
+  updateStats(); renderTable();
+  showToast(`Imported ${importBuffer.length} configuration items`);
+  importBuffer=[];
+}
+
+function downloadTemplate(){
+  const headers='name,alias,domain,category,type,vendor,product,version,host,env,os,db,location,owner,team,criticality,reviewCycle,lastReviewed,compliance,deps,notes';
+  const example='My Application,APP-001,gen,Applications,IT Application,Vendor Inc,Product Name,v1.0.0,app-server.corp,Production,RHEL 8,Oracle 19c,DC-EAST,J. Smith,Ops Team,High,90,2025-01-01,NERC CIP|SOX,Other App|DB Server,Notes here';
+  const blob=new Blob([headers+'\n'+example],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='gridflow-ci-template.csv';a.click();
+  showToast('Template downloaded');
+}
+
+function exportCSV(){
+  const headers=['name','alias','domain','category','type','vendor','product','version','host','env','os','db','location','owner','team','criticality','reviewCycle','lastReviewed','compliance','deps','notes'];
+  const rows=CI_DATA.map(c=>headers.map(h=>h==='compliance'?(c[h]||[]).join('|'):(c[h]||'')).map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
+  const blob=new Blob([headers.join(',')+'\n'+rows.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='gridflow-ci-export.csv';a.click();
+  showToast(`Exported ${CI_DATA.length} configuration items`);
+}
+
+// =============================================
+// TOAST
+// =============================================
+function showToast(msg,type='success'){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast '+(type||'');
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3500);
 }
 
 // =============================================
@@ -586,3 +1532,8 @@ function setMapFilter(f, btn) {
 // =============================================
 // INIT
 // =============================================
+updateStats();
+renderTable();
+</script>
+</body>
+</html>
