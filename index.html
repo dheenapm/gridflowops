@@ -192,6 +192,30 @@ tbody tr.due-soon{background:rgba(245,158,11,0.04);}
 .comp-iso{border-color:rgba(34,197,94,0.4);color:var(--success);}
 .comp-gdpr{border-color:rgba(0,229,176,0.4);color:var(--accent);}
 
+/* VIEW TABS (Registry / Map) */
+.view-tab{padding:11px 18px;cursor:pointer;border-bottom:2px solid transparent;font-family:var(--font-display);font-size:14px;font-weight:600;letter-spacing:1px;color:var(--text-secondary);transition:all 0.15s;text-transform:uppercase;user-select:none;}
+.view-tab:hover{color:var(--text-primary);}
+.view-tab.active{border-bottom-color:var(--accent);color:var(--accent);}
+
+/* MAP FILTER BUTTONS */
+.map-filter-btn{background:var(--bg);border:1px solid var(--border2);color:var(--text-secondary);padding:4px 11px;font-family:var(--font-mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:2px;transition:all 0.15s;}
+.map-filter-btn:hover{border-color:var(--fc,var(--accent));color:var(--fc,var(--accent));}
+.map-filter-btn.active{border-color:var(--fc,var(--accent));color:var(--fc,var(--accent));background:color-mix(in srgb, var(--fc,var(--accent)) 12%, transparent);}
+
+/* MAP LEGEND */
+.leg-item-bar{display:flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:9px;color:var(--text-secondary);letter-spacing:1px;text-transform:uppercase;}
+.leg-dot-bar{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+
+/* MAP CI PANEL */
+.ci-detail-row{display:flex;flex-direction:column;gap:2px;padding:7px 0;border-bottom:1px solid var(--border);}
+.ci-detail-row:last-child{border-bottom:none;}
+.ci-detail-key{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;}
+.ci-detail-val{font-size:11px;color:var(--text-primary);line-height:1.4;}
+.ci-conn-item{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;cursor:pointer;transition:background 0.12s;}
+.ci-conn-item:hover{background:var(--accent-dim);}
+.ci-conn-item:last-child{border-bottom:none;}
+.ci-conn-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+
 /* SCROLLBAR */
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-track{background:var(--bg);}
@@ -297,52 +321,116 @@ tbody tr.due-soon{background:rgba(245,158,11,0.04);}
     </div>
   </div>
 
-  <!-- DOMAIN TABS -->
-  <div class="dtab" id="domain-tabs">
-    <div class="dtab-item active all" onclick="switchDomain('all',this)">⚡ All Domains <span id="tab-count-all" class="tab-count">0</span></div>
-    <div class="dtab-item gen" onclick="switchDomain('gen',this)">🔥 Generation <span id="tab-count-gen" class="tab-count">0</span></div>
-    <div class="dtab-item tx" onclick="switchDomain('tx',this)">🔌 Transmission <span id="tab-count-tx" class="tab-count">0</span></div>
-    <div class="dtab-item dx" onclick="switchDomain('dx',this)">🏘️ Distribution <span id="tab-count-dx" class="tab-count">0</span></div>
-    <div class="dtab-item bill" onclick="switchDomain('bill',this)">💳 Billing <span id="tab-count-bill" class="tab-count">0</span></div>
-    <div class="dtab-item cx" onclick="switchDomain('cx',this)">🎧 Customer Care <span id="tab-count-cx" class="tab-count">0</span></div>
+  <!-- TOP-LEVEL VIEW TABS (Registry vs Map) -->
+  <div style="display:flex;align-items:center;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 20px;flex-shrink:0;">
+    <div class="view-tab active" id="vtab-registry" onclick="switchView('registry')">🗄️ &nbsp;CI Registry</div>
+    <div class="view-tab" id="vtab-map" onclick="switchView('map')">🌐 &nbsp;Architecture Map</div>
+    <div style="flex:1"></div>
+    <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:2px;">CONFIGURATION MODULE</span>
   </div>
 
-  <!-- TOOLBAR -->
-  <div class="toolbar">
-    <div class="search-box">
-      <span style="color:var(--text-muted);font-size:14px;">🔍</span>
-      <input type="text" id="search-input" placeholder="Search CI name, host, vendor, version..." oninput="renderTable()">
+  <!-- ===== REGISTRY VIEW ===== -->
+  <div id="view-registry" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+    <!-- DOMAIN TABS -->
+    <div class="dtab" id="domain-tabs">
+      <div class="dtab-item active all" onclick="switchDomain('all',this)">⚡ All Domains <span id="tab-count-all" class="tab-count">0</span></div>
+      <div class="dtab-item gen" onclick="switchDomain('gen',this)">🔥 Generation <span id="tab-count-gen" class="tab-count">0</span></div>
+      <div class="dtab-item tx" onclick="switchDomain('tx',this)">🔌 Transmission <span id="tab-count-tx" class="tab-count">0</span></div>
+      <div class="dtab-item dx" onclick="switchDomain('dx',this)">🏘️ Distribution <span id="tab-count-dx" class="tab-count">0</span></div>
+      <div class="dtab-item bill" onclick="switchDomain('bill',this)">💳 Billing <span id="tab-count-bill" class="tab-count">0</span></div>
+      <div class="dtab-item cx" onclick="switchDomain('cx',this)">🎧 Customer Care <span id="tab-count-cx" class="tab-count">0</span></div>
     </div>
-    <select class="filter-sel" id="filter-category" onchange="renderTable()">
-      <option value="">All Categories</option>
-      <option>Applications</option>
-      <option>Integrations</option>
-      <option>Server Hosts</option>
-      <option>Database Hosts</option>
-      <option>Network Components</option>
-      <option>Security & Auth</option>
-      <option>Storage & Backup</option>
-      <option>Monitoring & Logging</option>
-    </select>
-    <select class="filter-sel" id="filter-criticality" onchange="renderTable()">
-      <option value="">All Criticality</option>
-      <option>Critical</option>
-      <option>High</option>
-      <option>Medium</option>
-      <option>Low</option>
-    </select>
-    <select class="filter-sel" id="filter-review" onchange="renderTable()">
-      <option value="">All Review Status</option>
-      <option value="overdue">Overdue</option>
-      <option value="due">Due Soon</option>
-      <option value="ok">Up to Date</option>
-    </select>
-    <span class="ci-count-badge" id="ci-count-label">0 items</span>
+
+    <!-- TOOLBAR -->
+    <div class="toolbar">
+      <div class="search-box">
+        <span style="color:var(--text-muted);font-size:14px;">🔍</span>
+        <input type="text" id="search-input" placeholder="Search CI name, host, vendor, version..." oninput="renderTable()">
+      </div>
+      <select class="filter-sel" id="filter-category" onchange="renderTable()">
+        <option value="">All Categories</option>
+        <option>Applications</option>
+        <option>Integrations</option>
+        <option>Server Hosts</option>
+        <option>Database Hosts</option>
+        <option>Network Components</option>
+        <option>Security & Auth</option>
+        <option>Storage & Backup</option>
+        <option>Monitoring & Logging</option>
+      </select>
+      <select class="filter-sel" id="filter-criticality" onchange="renderTable()">
+        <option value="">All Criticality</option>
+        <option>Critical</option>
+        <option>High</option>
+        <option>Medium</option>
+        <option>Low</option>
+      </select>
+      <select class="filter-sel" id="filter-review" onchange="renderTable()">
+        <option value="">All Review Status</option>
+        <option value="overdue">Overdue</option>
+        <option value="due">Due Soon</option>
+        <option value="ok">Up to Date</option>
+      </select>
+      <span class="ci-count-badge" id="ci-count-label">0 items</span>
+    </div>
+
+    <!-- CI TABLE -->
+    <div class="ci-table-wrap" id="ci-table-wrap"></div>
   </div>
 
-  <!-- CI TABLE -->
-  <div class="ci-table-wrap" id="ci-table-wrap">
-    <!-- Rendered by JS -->
+  <!-- ===== ARCHITECTURE MAP VIEW ===== -->
+  <div id="view-map" style="display:none;flex:1;flex-direction:column;overflow:hidden;position:relative;">
+
+    <!-- Map toolbar -->
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--bg3);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;">
+      <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;">Filter Domain:</span>
+      <button class="map-filter-btn active" data-f="all" onclick="setMapFilter('all',this)">All</button>
+      <button class="map-filter-btn" data-f="gen" onclick="setMapFilter('gen',this)" style="--fc:#f59e0b">Generation</button>
+      <button class="map-filter-btn" data-f="tx"  onclick="setMapFilter('tx',this)"  style="--fc:#38bdf8">Transmission</button>
+      <button class="map-filter-btn" data-f="dx"  onclick="setMapFilter('dx',this)"  style="--fc:#a78bfa">Distribution</button>
+      <button class="map-filter-btn" data-f="bill" onclick="setMapFilter('bill',this)" style="--fc:#fb7185">Billing</button>
+      <button class="map-filter-btn" data-f="cx"  onclick="setMapFilter('cx',this)"  style="--fc:#00e5b0">Customer Care</button>
+      <div style="flex:1"></div>
+      <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted)">Click node → view CI record &nbsp;|&nbsp; Hover → details</span>
+    </div>
+
+    <!-- Map + side panel -->
+    <div style="display:flex;flex:1;overflow:hidden;">
+      <canvas id="map-canvas" style="flex:1;display:block;"></canvas>
+
+      <!-- Right side CI detail panel -->
+      <div id="map-ci-panel" style="width:260px;flex-shrink:0;background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;">
+        <div style="padding:12px 14px;border-bottom:1px solid var(--border);background:var(--bg3);">
+          <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;">Selected System</div>
+        </div>
+        <div id="map-ci-body" style="flex:1;overflow-y:auto;padding:14px;">
+          <div style="text-align:center;padding:30px 10px;">
+            <div style="font-size:28px;margin-bottom:10px;opacity:0.3;">🌐</div>
+            <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);letter-spacing:1px;">Click any node on the map to view its CI record and integration details</div>
+          </div>
+        </div>
+        <!-- CI actions footer -->
+        <div id="map-ci-actions" style="display:none;padding:10px 14px;border-top:1px solid var(--border);background:var(--bg3);gap:6px;flex-direction:column;">
+          <button class="btn btn-accent btn-sm" style="width:100%;font-size:11px;" id="map-open-ci-btn" onclick="openCIFromMap()">Open Full CI Record →</button>
+          <button class="btn btn-outline btn-sm" style="width:100%;font-size:11px;" id="map-review-btn" onclick="openReviewFromMap()">⟳ Mark Reviewed</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Map legend -->
+    <div style="display:flex;align-items:center;gap:16px;padding:8px 16px;background:var(--bg3);border-top:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;">
+      <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;">Legend:</span>
+      <div class="leg-item-bar"><div class="leg-dot-bar" style="background:#f59e0b"></div>Generation</div>
+      <div class="leg-item-bar"><div class="leg-dot-bar" style="background:#38bdf8"></div>Transmission</div>
+      <div class="leg-item-bar"><div class="leg-dot-bar" style="background:#a78bfa"></div>Distribution</div>
+      <div class="leg-item-bar"><div class="leg-dot-bar" style="background:#fb7185"></div>Billing</div>
+      <div class="leg-item-bar"><div class="leg-dot-bar" style="background:#00e5b0"></div>Customer Care</div>
+      <div class="leg-item-bar"><div class="leg-dot-bar" style="background:#888"></div>Control Center</div>
+      <div style="flex:1"></div>
+      <div class="leg-item-bar"><div style="width:20px;height:1px;background:#ef4444;margin-right:5px;"></div>Direct dependency</div>
+      <div class="leg-item-bar"><div style="width:20px;height:1px;background:#888;border-top:1px dashed #888;margin-right:5px;"></div>Indirect</div>
+      <div class="leg-item-bar"><div style="width:8px;height:8px;border-radius:50%;background:var(--danger);margin-right:5px;"></div>Overdue review</div>
+    </div>
   </div>
 </div>
 </div>
@@ -1046,6 +1134,399 @@ function showToast(msg,type='success'){
   t.textContent=msg;t.className='toast '+(type||'');
   t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),3500);
+}
+
+// =============================================
+// VIEW SWITCHING
+// =============================================
+let mapInitialized = false;
+function switchView(view) {
+  document.getElementById('view-registry').style.display = view==='registry' ? 'flex' : 'none';
+  document.getElementById('view-map').style.display      = view==='map'      ? 'flex' : 'none';
+  document.getElementById('vtab-registry').classList.toggle('active', view==='registry');
+  document.getElementById('vtab-map').classList.toggle('active', view==='map');
+  if (view==='map' && !mapInitialized) { initMap(); mapInitialized=true; }
+  if (view==='map') { resizeMap(); }
+}
+
+// =============================================
+// ARCHITECTURE MAP ENGINE
+// =============================================
+const MCOL = {gen:'#f59e0b',tx:'#38bdf8',dx:'#a78bfa',bill:'#fb7185',cx:'#00e5b0',ctrl:'#888888'};
+
+// Map nodes with normalized positions and CI record linkage
+const MAP_NODES = [
+  {id:'gen-ems', label:'EMS Core',       sub:'GE PMAX',          domain:'gen',  nx:0.06,ny:0.17, ciIds:['ci001']},
+  {id:'gen-pi',  label:'PI Historian',   sub:'OSIsoft/AVEVA',    domain:'gen',  nx:0.06,ny:0.33, ciIds:['ci002']},
+  {id:'gen-dcs', label:'DCS Interface',  sub:'Honeywell',        domain:'gen',  nx:0.06,ny:0.49, ciIds:['ci003']},
+  {id:'gen-cmms',label:'Plant CMMS',     sub:'SAP PM',           domain:'gen',  nx:0.06,ny:0.65, ciIds:['ci004']},
+  {id:'gen-uco', label:'Unit Commit.',   sub:'ABB Optimizer',    domain:'gen',  nx:0.06,ny:0.81, ciIds:['ci007']},
+  {id:'tx-scada',label:'TX SCADA/EMS',   sub:'ABB Network Mgr',  domain:'tx',   nx:0.24,ny:0.11, ciIds:['ci012']},
+  {id:'tx-nmm',  label:'Network Model',  sub:'Siemens PSCAD',    domain:'tx',   nx:0.24,ny:0.27, ciIds:['ci013']},
+  {id:'tx-wams', label:'WAMS / PMU',     sub:'SEL Analytics',    domain:'tx',   nx:0.24,ny:0.43, ciIds:['ci014']},
+  {id:'tx-emi',  label:'Market Iface.',  sub:'ABB e-Terra',      domain:'tx',   nx:0.24,ny:0.59, ciIds:['ci016']},
+  {id:'tx-gis',  label:'TX GIS Assets',  sub:'Esri ArcGIS',      domain:'tx',   nx:0.24,ny:0.75, ciIds:['ci015']},
+  {id:'ctrl',    label:'Control Center', sub:'ISO/SCADA Hub',    domain:'ctrl', nx:0.44,ny:0.40, ciIds:[]},
+  {id:'dx-ami',  label:'AMI Head-End',   sub:'Itron OpenWay',    domain:'dx',   nx:0.63,ny:0.11, ciIds:['ci021']},
+  {id:'dx-oms',  label:'OMS',            sub:'GE ADMS OMS',      domain:'dx',   nx:0.63,ny:0.27, ciIds:['ci022']},
+  {id:'dx-dms',  label:'DMS / ADMS',     sub:'Schneider ArcFM',  domain:'dx',   nx:0.63,ny:0.43, ciIds:['ci023']},
+  {id:'dx-derms',label:'DERMS',          sub:'AutoGrid Flex',    domain:'dx',   nx:0.63,ny:0.59, ciIds:['ci026']},
+  {id:'dx-gis',  label:'DX GIS Assets',  sub:'Esri ArcGIS',      domain:'dx',   nx:0.63,ny:0.75, ciIds:['ci024']},
+  {id:'bill-mdm',label:'MDM',            sub:'Itron MDM',        domain:'bill', nx:0.44,ny:0.68, ciIds:['ci032']},
+  {id:'bill-ccb',label:'Billing Engine', sub:'Oracle CC&B',      domain:'bill', nx:0.33,ny:0.82, ciIds:['ci031']},
+  {id:'bill-rate',label:'Rate Engine',   sub:'Internal API',     domain:'bill', nx:0.44,ny:0.87, ciIds:['ci033']},
+  {id:'bill-pay',label:'Payment GW',     sub:'Worldpay/FIS',     domain:'bill', nx:0.33,ny:0.93, ciIds:['ci034']},
+  {id:'cx-crm',  label:'CRM',            sub:'Salesforce',       domain:'cx',   nx:0.82,ny:0.16, ciIds:['ci041']},
+  {id:'cx-cis',  label:'CIS / Portal',   sub:'Oracle CC&B Web',  domain:'cx',   nx:0.82,ny:0.32, ciIds:['ci042']},
+  {id:'cx-ivr',  label:'IVR / Contact',  sub:'Genesys Cloud',    domain:'cx',   nx:0.82,ny:0.48, ciIds:['ci043']},
+  {id:'cx-mob',  label:'Mobile App',     sub:'iOS / Android',    domain:'cx',   nx:0.82,ny:0.64, ciIds:['ci044']},
+  {id:'cx-ons',  label:'Outage Notify',  sub:'Digi Notifi',      domain:'cx',   nx:0.82,ny:0.80, ciIds:['ci045']},
+];
+
+const MAP_EDGES = [
+  {f:'gen-ems', t:'tx-scada', bi:true},  {f:'gen-ems', t:'ctrl', bi:true},
+  {f:'gen-pi',  t:'ctrl'},               {f:'gen-pi',  t:'tx-wams'},
+  {f:'gen-uco', t:'tx-emi', bi:true},    {f:'gen-dcs', t:'gen-ems', bi:true},
+  {f:'tx-scada',t:'ctrl', bi:true},      {f:'tx-wams', t:'ctrl'},
+  {f:'tx-nmm',  t:'tx-scada', bi:true},  {f:'tx-emi',  t:'bill-ccb', bi:true},
+  {f:'tx-gis',  t:'dx-gis'},             {f:'tx-scada',t:'dx-dms'},
+  {f:'ctrl',    t:'dx-oms', bi:true},    {f:'ctrl',    t:'dx-dms', bi:true},
+  {f:'dx-ami',  t:'bill-mdm'},           {f:'dx-ami',  t:'dx-oms'},
+  {f:'dx-oms',  t:'cx-ons'},             {f:'dx-oms',  t:'cx-crm'},
+  {f:'dx-dms',  t:'dx-oms', bi:true},    {f:'dx-gis',  t:'dx-oms'},
+  {f:'dx-gis',  t:'dx-dms'},             {f:'dx-derms',t:'dx-dms', bi:true},
+  {f:'dx-derms',t:'tx-emi'},             {f:'bill-mdm',t:'bill-ccb'},
+  {f:'bill-rate',t:'bill-ccb'},          {f:'bill-pay', t:'bill-ccb', bi:true},
+  {f:'bill-ccb',t:'cx-crm', bi:true},   {f:'bill-ccb',t:'cx-cis'},
+  {f:'bill-pay', t:'cx-cis', bi:true},   {f:'bill-pay', t:'cx-mob', bi:true},
+  {f:'cx-crm',  t:'cx-ivr', bi:true},   {f:'cx-crm',  t:'cx-cis', bi:true},
+  {f:'cx-cis',  t:'cx-mob', bi:true},   {f:'cx-ons',  t:'cx-mob'},
+];
+
+// Map state
+let mapCanvas, mapCtx, mapW, mapH, mapFrame=0;
+let mapFilter='all', mapSelected=null, mapHovered=null;
+let mapParticles=[], mapAnim=null, mapSelectedCiId=null;
+
+function initMap() {
+  mapCanvas = document.getElementById('map-canvas');
+  mapCtx = mapCanvas.getContext('2d');
+  resizeMap();
+  mapCanvas.addEventListener('mousemove', onMapMouseMove);
+  mapCanvas.addEventListener('click', onMapClick);
+  mapCanvas.addEventListener('mouseleave', () => { mapHovered=null; mapCanvas.style.cursor='default'; });
+  window.addEventListener('resize', resizeMap);
+  drawMapLoop();
+}
+
+function resizeMap() {
+  if (!mapCanvas) return;
+  const container = mapCanvas.parentElement;
+  mapW = container.clientWidth - 260;
+  mapH = container.clientHeight;
+  mapCanvas.width  = Math.max(mapW, 100);
+  mapCanvas.height = Math.max(mapH, 100);
+}
+
+function mnx(n) { return n.nx * mapW; }
+function mny(n) { return n.ny * mapH; }
+function nodeByMapId(id) { return MAP_NODES.find(n=>n.id===id); }
+function getMapNodeR(n) { return n.domain==='ctrl' ? 34 : 26; }
+
+function isMapEdgeVisible(e) {
+  if (mapFilter==='all') return true;
+  const fn=nodeByMapId(e.f), tn=nodeByMapId(e.t);
+  return fn.domain===mapFilter || tn.domain===mapFilter || fn.domain==='ctrl' || tn.domain==='ctrl';
+}
+function isMapNodeVisible(n) {
+  if (mapFilter==='all') return true;
+  if (n.domain===mapFilter || n.domain==='ctrl') return true;
+  return MAP_EDGES.some(e => isMapEdgeVisible(e) && (e.f===n.id || e.t===n.id));
+}
+
+function getNodeReviewStatus(n) {
+  // Find linked CI and check review status
+  if (!n.ciIds || !n.ciIds.length) return 'ok';
+  const ci = CI_DATA.find(c => n.ciIds.includes(c.id));
+  if (!ci) return 'ok';
+  const rs = getReviewStatus(ci);
+  return rs.status;
+}
+
+function spawnMapParticle(edge) {
+  const fn=nodeByMapId(edge.f), tn=nodeByMapId(edge.t);
+  if (!fn||!tn) return;
+  mapParticles.push({
+    fx:mnx(fn), fy:mny(fn), tx:mnx(tn), ty:mny(tn),
+    t:Math.random(), speed:0.004+Math.random()*0.004,
+    color:MCOL[fn.domain]||'#888'
+  });
+}
+
+function drawMapGrid() {
+  mapCtx.strokeStyle='rgba(0,229,176,0.022)';
+  mapCtx.lineWidth=0.5;
+  for (let x=0;x<mapW;x+=40){mapCtx.beginPath();mapCtx.moveTo(x,0);mapCtx.lineTo(x,mapH);mapCtx.stroke();}
+  for (let y=0;y<mapH;y+=40){mapCtx.beginPath();mapCtx.moveTo(0,y);mapCtx.lineTo(mapW,y);mapCtx.stroke();}
+}
+
+function drawMapZone(label, nx1, ny1, nx2, ny2, color) {
+  const x1=nx1*mapW, y1=ny1*mapH, x2=nx2*mapW, y2=ny2*mapH;
+  mapCtx.save();
+  mapCtx.strokeStyle=color+'28';
+  mapCtx.lineWidth=1;
+  mapCtx.setLineDash([4,6]);
+  mapCtx.strokeRect(x1,y1,x2-x1,y2-y1);
+  mapCtx.setLineDash([]);
+  mapCtx.fillStyle=color+'05';
+  mapCtx.fillRect(x1,y1,x2-x1,y2-y1);
+  mapCtx.fillStyle=color+'80';
+  mapCtx.font=`500 9px 'IBM Plex Mono'`;
+  mapCtx.textAlign='left';
+  mapCtx.fillText(label, x1+6, y1+13);
+  mapCtx.restore();
+}
+
+function drawMapEdge(e) {
+  const fn=nodeByMapId(e.f), tn=nodeByMapId(e.t);
+  if (!fn||!tn) return;
+  const visible=isMapEdgeVisible(e);
+  const alpha = visible ? (mapSelected && (mapSelected.id===fn.id||mapSelected.id===tn.id) ? 0.9 : 0.5) : 0.06;
+  const x1=mnx(fn),y1=mny(fn),x2=mnx(tn),y2=mny(tn);
+  const mx=(x1+x2)/2+(y2-y1)*0.12, my=(y1+y2)/2-(x2-x1)*0.08;
+  const col = visible ? (MCOL[fn.domain]||'#888') : '#333';
+  mapCtx.save();
+  mapCtx.globalAlpha=alpha;
+  mapCtx.strokeStyle=col;
+  mapCtx.lineWidth=visible?1:0.4;
+  mapCtx.setLineDash(visible?[]:[3,5]);
+  mapCtx.beginPath();
+  mapCtx.moveTo(x1,y1);
+  mapCtx.quadraticCurveTo(mx,my,x2,y2);
+  mapCtx.stroke();
+  // Arrowhead at target
+  if (visible) {
+    const t=0.94;
+    const qx=(1-t)*(1-t)*x1+2*(1-t)*t*mx+t*t*x2;
+    const qy=(1-t)*(1-t)*y1+2*(1-t)*t*my+t*t*y2;
+    const ang=Math.atan2(y2-qy,x2-qx);
+    const r=getMapNodeR(tn);
+    const ax=x2-Math.cos(ang)*r, ay=y2-Math.sin(ang)*r;
+    mapCtx.lineWidth=1.2; mapCtx.setLineDash([]);
+    mapCtx.beginPath();
+    mapCtx.moveTo(ax,ay);
+    mapCtx.lineTo(ax-6*Math.cos(ang-0.4),ay-6*Math.sin(ang-0.4));
+    mapCtx.moveTo(ax,ay);
+    mapCtx.lineTo(ax-6*Math.cos(ang+0.4),ay-6*Math.sin(ang+0.4));
+    mapCtx.stroke();
+    if (e.bi) {
+      const t0=0.06;
+      const qx0=(1-t0)*(1-t0)*x1+2*(1-t0)*t0*mx+t0*t0*x2;
+      const qy0=(1-t0)*(1-t0)*y1+2*(1-t0)*t0*my+t0*t0*y2;
+      const ang0=Math.atan2(y1-qy0,x1-qx0);
+      const r0=getMapNodeR(fn);
+      const ax0=x1-Math.cos(ang0)*r0, ay0=y1-Math.sin(ang0)*r0;
+      mapCtx.beginPath();
+      mapCtx.moveTo(ax0,ay0);
+      mapCtx.lineTo(ax0-6*Math.cos(ang0-0.4),ay0-6*Math.sin(ang0-0.4));
+      mapCtx.moveTo(ax0,ay0);
+      mapCtx.lineTo(ax0-6*Math.cos(ang0+0.4),ay0-6*Math.sin(ang0+0.4));
+      mapCtx.stroke();
+    }
+  }
+  mapCtx.setLineDash([]);
+  mapCtx.restore();
+}
+
+function drawMapNode(n) {
+  const x=mnx(n), y=mny(n), r=getMapNodeR(n);
+  const col=MCOL[n.domain]||'#888';
+  const visible=isMapNodeVisible(n);
+  const isSel=mapSelected&&mapSelected.id===n.id;
+  const isHov=mapHovered&&mapHovered.id===n.id;
+  const rs=getNodeReviewStatus(n);
+  mapCtx.save();
+  mapCtx.globalAlpha=visible?1:0.15;
+  // Glow for selected
+  if(isSel){
+    mapCtx.shadowColor=col; mapCtx.shadowBlur=20;
+    mapCtx.strokeStyle=col; mapCtx.lineWidth=2.5;
+    mapCtx.beginPath(); mapCtx.arc(x,y,r+5,0,Math.PI*2); mapCtx.stroke();
+    mapCtx.shadowBlur=0;
+  }
+  // Background
+  mapCtx.fillStyle='#0d1e1b';
+  mapCtx.beginPath(); mapCtx.arc(x,y,r,0,Math.PI*2); mapCtx.fill();
+  // Color fill
+  mapCtx.fillStyle=col+(isSel?'35':isHov?'25':'12');
+  mapCtx.beginPath(); mapCtx.arc(x,y,r,0,Math.PI*2); mapCtx.fill();
+  // Border
+  mapCtx.strokeStyle=col;
+  mapCtx.lineWidth=isSel?2:isHov?1.5:0.8;
+  mapCtx.beginPath(); mapCtx.arc(x,y,r,0,Math.PI*2); mapCtx.stroke();
+  // Arc stripe
+  mapCtx.strokeStyle=col; mapCtx.lineWidth=2.5; mapCtx.lineCap='round';
+  mapCtx.beginPath(); mapCtx.arc(x,y,r-2,-Math.PI*0.7,-Math.PI*0.1); mapCtx.stroke();
+  // Overdue indicator
+  if(rs==='overdue'&&visible){
+    mapCtx.fillStyle='#ef4444';
+    mapCtx.beginPath(); mapCtx.arc(x+r-4,y-r+4,5,0,Math.PI*2); mapCtx.fill();
+    mapCtx.fillStyle='#fff';
+    mapCtx.font='bold 7px IBM Plex Mono';
+    mapCtx.textAlign='center'; mapCtx.textBaseline='middle';
+    mapCtx.fillText('!',x+r-4,y-r+4);
+  } else if(rs==='due'&&visible){
+    mapCtx.fillStyle='#f59e0b';
+    mapCtx.beginPath(); mapCtx.arc(x+r-4,y-r+4,4,0,Math.PI*2); mapCtx.fill();
+  }
+  // Label
+  const lines=n.label.split(' ');
+  mapCtx.fillStyle=isSel?col:'#e8f5f2';
+  mapCtx.font=`500 ${n.domain==='ctrl'?10:9}px 'IBM Plex Mono'`;
+  mapCtx.textAlign='center'; mapCtx.textBaseline='middle';
+  if(lines.length<=2){
+    if(lines.length===1) mapCtx.fillText(n.label,x,y-3);
+    else { mapCtx.fillText(lines[0],x,y-7); mapCtx.fillText(lines[1],x,y+4); }
+  } else {
+    mapCtx.fillText(lines[0]+' '+lines[1],x,y-6); mapCtx.fillText(lines.slice(2).join(' '),x,y+5);
+  }
+  mapCtx.fillStyle=col+'99';
+  mapCtx.font=`400 7.5px 'IBM Plex Mono'`;
+  mapCtx.fillText(n.sub,x,y+(lines.length>1?16:13));
+  mapCtx.restore();
+}
+
+function drawMapParticles() {
+  mapParticles=mapParticles.filter(p=>p.t<1);
+  mapParticles.forEach(p=>{
+    p.t+=p.speed;
+    const x=p.fx+(p.tx-p.fx)*p.t, y=p.fy+(p.ty-p.fy)*p.t;
+    const a=(1-Math.abs(p.t-0.5)*2)*0.8;
+    mapCtx.save();
+    mapCtx.globalAlpha=a;
+    mapCtx.fillStyle=p.color;
+    mapCtx.shadowColor=p.color; mapCtx.shadowBlur=5;
+    mapCtx.beginPath(); mapCtx.arc(x,y,2.2,0,Math.PI*2); mapCtx.fill();
+    mapCtx.restore();
+  });
+  if(mapFrame%7===0){
+    const ve=MAP_EDGES.filter(e=>isMapEdgeVisible(e));
+    if(ve.length){ const e=ve[Math.floor(Math.random()*ve.length)]; spawnMapParticle(e); if(e.bi&&Math.random()>.5)spawnMapParticle({f:e.t,t:e.f}); }
+  }
+}
+
+function drawMapLoop() {
+  mapCtx.clearRect(0,0,mapW,mapH);
+  mapCtx.fillStyle='#09100f'; mapCtx.fillRect(0,0,mapW,mapH);
+  drawMapGrid();
+  drawMapZone('GENERATION',   0.00,0.08, 0.16,0.92, '#f59e0b');
+  drawMapZone('TRANSMISSION', 0.17,0.04, 0.36,0.84, '#38bdf8');
+  drawMapZone('DISTRIBUTION', 0.56,0.04, 0.75,0.84, '#a78bfa');
+  drawMapZone('BILLING',      0.26,0.63, 0.56,0.99, '#fb7185');
+  drawMapZone('CUSTOMER CARE',0.76,0.08, 0.99,0.92, '#00e5b0');
+  MAP_EDGES.forEach(drawMapEdge);
+  drawMapParticles();
+  MAP_NODES.forEach(drawMapNode);
+  mapFrame++;
+  mapAnim=requestAnimationFrame(drawMapLoop);
+}
+
+function onMapMouseMove(e) {
+  const rect=mapCanvas.getBoundingClientRect();
+  const mx=(e.clientX-rect.left)*(mapW/rect.width);
+  const my=(e.clientY-rect.top)*(mapH/rect.height);
+  mapHovered=MAP_NODES.find(n=>{const dx=mx-mnx(n),dy=my-mny(n),r=getMapNodeR(n)+4;return dx*dx+dy*dy<r*r;});
+  mapCanvas.style.cursor=mapHovered?'pointer':'default';
+}
+
+function onMapClick(e) {
+  const rect=mapCanvas.getBoundingClientRect();
+  const mx=(e.clientX-rect.left)*(mapW/rect.width);
+  const my=(e.clientY-rect.top)*(mapH/rect.height);
+  const node=MAP_NODES.find(n=>{const dx=mx-mnx(n),dy=my-mny(n),r=getMapNodeR(n)+5;return dx*dx+dy*dy<r*r;});
+  mapSelected=node||null;
+  if(node) renderMapCIPanel(node);
+  else resetMapCIPanel();
+}
+
+function renderMapCIPanel(node) {
+  const col=MCOL[node.domain]||'#888';
+  const domainLabels={gen:'Generation',tx:'Transmission',dx:'Distribution',bill:'Billing',cx:'Customer Care',ctrl:'Control Center'};
+  const ci=node.ciIds&&node.ciIds.length?CI_DATA.find(c=>node.ciIds.includes(c.id)):null;
+  const rs=ci?getReviewStatus(ci):{status:'ok',label:'No CI linked'};
+  const rsColor={overdue:'var(--danger)',due:'var(--warn)',ok:'var(--success)'}[rs.status]||'var(--text-muted)';
+  mapSelectedCiId = ci ? ci.id : null;
+
+  // Connected nodes
+  const connectedIds=MAP_EDGES.filter(e=>e.f===node.id||e.t===node.id).map(e=>e.f===node.id?e.t:e.f);
+  const connNodes=[...new Set(connectedIds)].map(id=>MAP_NODES.find(n=>n.id===id)).filter(Boolean);
+
+  document.getElementById('map-ci-body').innerHTML=`
+    <div style="padding:10px 0 12px;border-bottom:1px solid var(--border);margin-bottom:10px;">
+      <div style="font-family:var(--font-display);font-size:16px;font-weight:600;color:${col};letter-spacing:1px;margin-bottom:3px;">${node.label}</div>
+      <div style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);margin-bottom:6px;">${node.sub}</div>
+      <span style="font-family:var(--font-mono);font-size:9px;padding:2px 8px;border-radius:2px;background:${col}22;color:${col};border:1px solid ${col}44;">${domainLabels[node.domain]||node.domain}</span>
+    </div>
+    ${ci?`
+    <div class="ci-detail-row"><div class="ci-detail-key">CI Record</div><div class="ci-detail-val" style="color:var(--accent);font-family:var(--font-mono);font-size:10px;">${ci.alias||ci.id}</div></div>
+    <div class="ci-detail-row"><div class="ci-detail-key">Vendor / Product</div><div class="ci-detail-val">${ci.vendor||'—'}${ci.product?' — '+ci.product:''}</div></div>
+    <div class="ci-detail-row"><div class="ci-detail-key">Version</div><div class="ci-detail-val" style="font-family:var(--font-mono);font-size:10px;color:var(--accent)">${ci.version||'—'}</div></div>
+    <div class="ci-detail-row"><div class="ci-detail-key">Host / Endpoint</div><div class="ci-detail-val" style="font-family:var(--font-mono);font-size:10px;word-break:break-all;">${ci.host||'—'}</div></div>
+    <div class="ci-detail-row"><div class="ci-detail-key">Environment</div><div class="ci-detail-val">${ci.env||'—'}</div></div>
+    <div class="ci-detail-row"><div class="ci-detail-key">Owner</div><div class="ci-detail-val">${ci.owner||'—'} · ${ci.team||''}</div></div>
+    <div class="ci-detail-row"><div class="ci-detail-key">Criticality</div><div class="ci-detail-val"><span class="badge ${CRIT_CLASS[ci.criticality]||''}">${ci.criticality}</span></div></div>
+    <div class="ci-detail-row"><div class="ci-detail-key">Last Reviewed</div><div class="ci-detail-val" style="color:${rsColor};font-family:var(--font-mono);font-size:10px;">${formatDate(ci.lastReviewed)} · ${rs.label}</div></div>
+    ${ci.compliance&&ci.compliance.length?`<div class="ci-detail-row"><div class="ci-detail-key">Compliance</div><div class="ci-detail-val">${ci.compliance.map(t=>`<span class="comp-tag ${COMP_CLASS[t]||''}">${t}</span>`).join('')}</div></div>`:''}
+    ${ci.notes?`<div class="ci-detail-row"><div class="ci-detail-key">Notes</div><div class="ci-detail-val" style="color:var(--text-secondary);line-height:1.5;">${ci.notes.substring(0,120)}${ci.notes.length>120?'…':''}</div></div>`:''}
+    `:`<div class="ci-detail-row"><div class="ci-detail-key">CI Record</div><div class="ci-detail-val" style="color:var(--text-muted);">No CI record linked</div></div>`}
+    <div style="margin-top:14px;margin-bottom:6px;font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;">Connected Systems (${connNodes.length})</div>
+    <div>
+    ${connNodes.map(cn=>{
+      const ccol=MCOL[cn.domain]||'#888';
+      const crs=getNodeReviewStatus(cn);
+      const crsColor={overdue:'var(--danger)',due:'var(--warn)',ok:'var(--success)'}[crs]||'var(--text-muted)';
+      return `<div class="ci-conn-item" onclick="selectMapNode('${cn.id}')">
+        <div class="ci-conn-dot" style="background:${ccol}"></div>
+        <div style="flex:1"><div style="font-size:11px;color:var(--text-primary)">${cn.label}</div><div style="font-size:9px;font-family:var(--font-mono);color:var(--text-muted)">${cn.sub}</div></div>
+        ${crs==='overdue'?`<span style="font-family:var(--font-mono);font-size:8px;color:var(--danger)">OVERDUE</span>`:''}
+      </div>`;
+    }).join('')}
+    </div>
+  `;
+  document.getElementById('map-ci-actions').style.display = ci ? 'flex' : 'none';
+}
+
+function resetMapCIPanel() {
+  document.getElementById('map-ci-body').innerHTML=`<div style="text-align:center;padding:30px 10px;"><div style="font-size:28px;margin-bottom:10px;opacity:0.3;">🌐</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);letter-spacing:1px;">Click any node on the map to view its CI record</div></div>`;
+  document.getElementById('map-ci-actions').style.display='none';
+  mapSelectedCiId=null;
+}
+
+function selectMapNode(nodeId) {
+  mapSelected=MAP_NODES.find(n=>n.id===nodeId);
+  if(mapSelected) renderMapCIPanel(mapSelected);
+}
+
+function openCIFromMap() {
+  if(!mapSelectedCiId) return;
+  // Switch to registry, scroll to CI
+  switchView('registry');
+  setTimeout(()=>{
+    document.getElementById('search-input').value=CI_DATA.find(c=>c.id===mapSelectedCiId)?.name||'';
+    renderTable();
+  },100);
+}
+
+function openReviewFromMap() {
+  if(!mapSelectedCiId) return;
+  openReviewModal(mapSelectedCiId);
+}
+
+function setMapFilter(f, btn) {
+  mapFilter=f;
+  mapParticles=[];
+  document.querySelectorAll('.map-filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
 }
 
 // =============================================
