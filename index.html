@@ -1,440 +1,60 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>GridFlowOps — Enterprise Utility Intelligence Platform</title>
+.comp-iso{border-color:rgba(34,197,94,0.4);color:var(--success);}
+.comp-gdpr{border-color:rgba(0,229,176,0.4);color:var(--accent);}
 
-<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-
-<style>
-:root{
-  --bg:#050a09;
-  --bg2:#0a0f0e;
-  --bg3:#0d1612;
-  --panel:#0c1513;
-  --panel2:#0f1d1a;
-  --panel3:#0b1412;
-  --border:#1b3a33;
-  --border2:#274239;
-  --text:#e6f2ef;
-  --text-primary:#e6f2ef;
-  --text-secondary:#a8c5bf;
-  --text-muted:#6f9a92;
-  --accent:#00e5b0;
-  --accent2:#00b88c;
-  --accent-dim:rgba(0,229,176,0.08);
-  --warn:#f59e0b;
-  --danger:#ef4444;
-  --success:#22c55e;
-  --mono:'IBM Plex Mono',monospace;
-  --body:'IBM Plex Sans',sans-serif;
-  --display:'Rajdhani',sans-serif;
-  --font-mono:'IBM Plex Mono',monospace;
-  --font-body:'IBM Plex Sans',sans-serif;
-  --font-display:'Rajdhani',sans-serif;
-}
-
-*{box-sizing:border-box;margin:0;padding:0}
-body{
-  background:radial-gradient(circle at top,#0b1513,#040707);
-  color:var(--text);
-  font-family:var(--body);
-  overflow:hidden;
-}
-
-.app{display:flex;height:100vh}
-
-/* SIDEBAR */
-.sidebar{
-  width:260px;
-  background:var(--panel);
-  border-right:1px solid var(--border);
-  display:flex;
-  flex-direction:column;
-}
-.logo{
-  padding:16px;
-  border-bottom:1px solid var(--border);
-}
-.logo h1{
-  font-family:var(--display);
-  letter-spacing:2px;
-  color:var(--accent);
-  font-size:20px;
-}
-.logo small{font-family:var(--mono);color:var(--text-muted);font-size:10px}
-
-.nav{padding:10px;flex:1}
-.nav-item{padding:10px;margin:6px 0;cursor:pointer;color:var(--text-muted);border-left:2px solid transparent}
-.nav-item:hover{background:rgba(0,229,176,0.08);color:var(--text)}
-.nav-item.active{border-left:2px solid var(--accent);color:var(--accent)}
-
-/* MAIN */
-.main{flex:1;display:flex;flex-direction:column}
-.topbar{
-  height:56px;
-  background:var(--panel);
-  border-bottom:1px solid var(--border);
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:0 16px;
-}
-.title{font-family:var(--display);font-weight:600;letter-spacing:1px}
-.meta{font-family:var(--mono);font-size:11px;color:var(--text-muted)}
-
-/* CONTENT */
-.content{
-  flex:1;
-  display:flex;
-  flex-direction:column;
-  overflow:hidden;
-}
-
-/* VIEW TABS */
-.view-tab{
-  padding:11px 18px;
-  cursor:pointer;
-  border-bottom:2px solid transparent;
-  font-family:var(--font-display);
-  font-size:14px;
-  font-weight:600;
-  letter-spacing:1px;
-  color:var(--text-secondary);
-  transition:all 0.15s;
-  text-transform:uppercase;
-  user-select:none;
-}
-.view-tab:hover{color:var(--text-primary)}
-.view-tab.active{border-bottom-color:var(--accent);color:var(--accent)}
-
-/* DOMAIN TABS */
-.dtab{
-  display:flex;
-  gap:0;
-  padding:0;
-  border-bottom:1px solid var(--border);
-  background:var(--bg2);
-  overflow-x:auto;
-  flex-shrink:0;
-}
-.dtab-item{
-  padding:10px 16px;
-  cursor:pointer;
-  border-bottom:2px solid transparent;
-  font-family:var(--font-display);
-  font-size:12px;
-  font-weight:600;
-  letter-spacing:1px;
-  color:var(--text-secondary);
-  transition:all 0.15s;
-  white-space:nowrap;
-}
-.dtab-item:hover{color:var(--text-primary)}
-.dtab-item.active{border-bottom-color:var(--accent);color:var(--accent)}
-.tab-count{
-  font-family:var(--font-mono);
-  font-size:10px;
-  color:var(--text-muted);
-  margin-left:4px;
-}
-
-/* TOOLBAR */
-.toolbar{
-  display:flex;
-  gap:8px;
-  align-items:center;
-  padding:8px 16px;
-  background:var(--bg3);
-  border-bottom:1px solid var(--border);
-  flex-shrink:0;
-  flex-wrap:wrap;
-}
-.search-box{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  background:var(--panel3);
-  border:1px solid var(--border);
-  border-radius:4px;
-  padding:6px 10px;
-  flex:1;
-  min-width:300px;
-}
-.search-box input{
-  background:none;
-  border:none;
-  outline:none;
-  color:var(--text);
-  font-family:var(--font-body);
-  font-size:13px;
-  flex:1;
-}
-.search-box input::placeholder{color:var(--text-muted)}
-.filter-sel{
-  background:var(--panel3);
-  border:1px solid var(--border);
-  color:var(--text);
-  padding:6px 10px;
-  font-family:var(--font-mono);
-  font-size:11px;
-  border-radius:4px;
-  cursor:pointer;
-  transition:all 0.15s;
-}
-.filter-sel:hover{border-color:var(--accent)}
-.ci-count-badge{
-  font-family:var(--font-mono);
-  font-size:10px;
-  color:var(--text-muted);
-  padding:4px 8px;
-  background:var(--panel3);
-  border-radius:3px;
-  white-space:nowrap;
-}
-
-/* CI TABLE */
-.ci-table-wrap{
-  flex:1;
-  overflow-y:auto;
-  padding:0;
-}
-.ci-table{
-  width:100%;
-  border-collapse:collapse;
-  font-size:12px;
-}
-.ci-table thead{
-  background:var(--bg3);
-  position:sticky;
-  top:0;
-  z-index:10;
-}
-.ci-table th{
-  padding:10px 12px;
-  text-align:left;
-  font-family:var(--font-mono);
-  font-size:10px;
-  letter-spacing:1px;
-  color:var(--text-muted);
-  border-bottom:1px solid var(--border);
-  font-weight:600;
-  text-transform:uppercase;
-}
-.ci-table td{
-  padding:10px 12px;
-  border-bottom:1px solid var(--border2);
-  color:var(--text-primary);
-}
-.ci-table tbody tr{
-  transition:background 0.1s;
-  cursor:pointer;
-}
-.ci-table tbody tr:hover{
-  background:rgba(0,229,176,0.04);
-}
-.ci-table .ci-name{
-  font-family:var(--font-mono);
-  font-size:11px;
-  color:var(--accent);
-}
-.ci-table .ci-vendor{
-  font-size:11px;
-  color:var(--text-secondary);
-}
-.badge{
-  display:inline-block;
-  padding:2px 8px;
-  border-radius:3px;
-  font-family:var(--font-mono);
-  font-size:9px;
-  text-transform:uppercase;
-  font-weight:600;
-}
-.badge-critical{background:rgba(239,68,68,0.2);color:#fca5a5;border:1px solid rgba(239,68,68,0.5)}
-.badge-high{background:rgba(245,158,11,0.2);color:#fcd34d;border:1px solid rgba(245,158,11,0.5)}
-.badge-medium{background:rgba(96,165,250,0.2);color:#bfdbfe;border:1px solid rgba(96,165,250,0.5)}
-.badge-low{background:rgba(34,197,94,0.2);color:#bbf7d0;border:1px solid rgba(34,197,94,0.5)}
-
-.badge-prod{background:rgba(239,68,68,0.15);color:#fecaca}
-.badge-uat{background:rgba(245,158,11,0.15);color:#fde047}
-.badge-dev{background:rgba(96,165,250,0.15);color:#bfdbfe}
-
-.comp-tag{
-  display:inline-block;
-  padding:2px 6px;
-  border-radius:2px;
-  font-family:var(--font-mono);
-  font-size:8px;
-  margin-right:4px;
-  margin-bottom:2px;
-  border:1px solid;
-}
-.comp-iso{border-color:rgba(34,197,94,0.4);color:var(--success)}
-.comp-gdpr{border-color:rgba(0,229,176,0.4);color:var(--accent)}
+/* VIEW TABS (Registry / Map) */
+.view-tab{padding:11px 18px;cursor:pointer;border-bottom:2px solid transparent;font-family:var(--font-display);font-size:14px;font-weight:600;letter-spacing:1px;color:var(--text-secondary);transition:all 0.15s;text-transform:uppercase;user-select:none;}
+.view-tab:hover{color:var(--text-primary);}
+.view-tab.active{border-bottom-color:var(--accent);color:var(--accent);}
 
 /* MAP FILTER BUTTONS */
-.map-filter-btn{
-  background:var(--bg);
-  border:1px solid var(--border2);
-  color:var(--text-secondary);
-  padding:4px 11px;
-  font-family:var(--font-mono);
-  font-size:9px;
-  letter-spacing:1px;
-  text-transform:uppercase;
-  cursor:pointer;
-  border-radius:2px;
-  transition:all 0.15s;
-}
-.map-filter-btn:hover{
-  border-color:var(--fc,var(--accent));
-  color:var(--fc,var(--accent));
-}
-.map-filter-btn.active{
-  border-color:var(--fc,var(--accent));
-  color:var(--fc,var(--accent));
-  background:color-mix(in srgb, var(--fc,var(--accent)) 12%, transparent);
-}
+.map-filter-btn{background:var(--bg);border:1px solid var(--border2);color:var(--text-secondary);padding:4px 11px;font-family:var(--font-mono);font-size:9px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-radius:2px;transition:all 0.15s;}
+.map-filter-btn:hover{border-color:var(--fc,var(--accent));color:var(--fc,var(--accent));}
+.map-filter-btn.active{border-color:var(--fc,var(--accent));color:var(--fc,var(--accent));background:color-mix(in srgb, var(--fc,var(--accent)) 12%, transparent);}
 
 /* MAP LEGEND */
-.leg-item-bar{
-  display:flex;
-  align-items:center;
-  gap:5px;
-  font-family:var(--font-mono);
-  font-size:9px;
-  color:var(--text-secondary);
-  letter-spacing:1px;
-  text-transform:uppercase;
-}
-.leg-dot-bar{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.leg-item-bar{display:flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:9px;color:var(--text-secondary);letter-spacing:1px;text-transform:uppercase;}
+.leg-dot-bar{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 
 /* MAP CI PANEL */
-.ci-detail-row{
-  display:flex;
-  flex-direction:column;
-  gap:2px;
-  padding:7px 0;
-  border-bottom:1px solid var(--border);
-}
-.ci-detail-row:last-child{border-bottom:none}
-.ci-detail-key{
-  font-family:var(--font-mono);
-  font-size:9px;
-  color:var(--text-muted);
-  letter-spacing:1px;
-  text-transform:uppercase;
-}
-.ci-detail-val{
-  font-size:11px;
-  color:var(--text-primary);
-  line-height:1.4;
-}
-.ci-conn-item{
-  display:flex;
-  align-items:center;
-  gap:7px;
-  padding:5px 0;
-  border-bottom:1px solid var(--border);
-  font-size:11px;
-  cursor:pointer;
-  transition:background 0.12s;
-}
-.ci-conn-item:hover{background:var(--accent-dim)}
-.ci-conn-item:last-child{border-bottom:none}
-.ci-conn-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.ci-detail-row{display:flex;flex-direction:column;gap:2px;padding:7px 0;border-bottom:1px solid var(--border);}
+.ci-detail-row:last-child{border-bottom:none;}
+.ci-detail-key{font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;}
+.ci-detail-val{font-size:11px;color:var(--text-primary);line-height:1.4;}
+.ci-conn-item{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;cursor:pointer;transition:background 0.12s;}
+.ci-conn-item:hover{background:var(--accent-dim);}
+.ci-conn-item:last-child{border-bottom:none;}
+.ci-conn-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
 
 /* SCROLLBAR */
-::-webkit-scrollbar{width:4px;height:4px}
-::-webkit-scrollbar-track{background:var(--bg)}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}
-
-/* BUTTONS */
-.btn{
-  padding:8px 12px;
-  border:1px solid var(--border);
-  border-radius:4px;
-  font-family:var(--font-body);
-  font-size:12px;
-  cursor:pointer;
-  transition:all 0.15s;
-}
-.btn-accent{
-  background:var(--accent);
-  color:#041a15;
-  border-color:var(--accent);
-  font-weight:600;
-}
-.btn-accent:hover{
-  background:var(--accent2);
-  border-color:var(--accent2);
-}
-.btn-outline{
-  background:transparent;
-  color:var(--accent);
-  border-color:var(--accent);
-}
-.btn-outline:hover{
-  background:var(--accent-dim);
-}
-.btn-sm{padding:5px 10px;font-size:10px}
-
-/* GRAPH */
-#network{
-  height:100%;
-  width:100%;
-  background:radial-gradient(circle at center, rgba(0,229,176,0.05), transparent);
-}
-
-#map-canvas{
-  display:block;
-}
-
-</style>
-</head>
-<body>
-
-<div class="app">
-
-<div class="sidebar">
-  <div class="logo">
-    <h1>GRIDFLOW</h1>
-    <small>UTILITY INTELLIGENCE OS</small>
-  </div>
-
-  <div class="nav">
-    <div class="nav-item active">CI Registry</div>
-    <div class="nav-item">Integrations Map</div>
-    <div class="nav-item">CMDB</div>
-    <div class="nav-item">Releases</div>
-    <div class="nav-item">Risk Engine</div>
-  </div>
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+@@ -297,52 +321,116 @@
+</div>
 </div>
 
-<div class="main">
-
-<div class="topbar">
-  <div class="title">Configuration Module</div>
-  <div class="meta">Enterprise System Configuration & Dependency Management</div>
-</div>
-
-<div class="content">
-
+  <!-- DOMAIN TABS -->
+  <div class="dtab" id="domain-tabs">
+    <div class="dtab-item active all" onclick="switchDomain('all',this)">⚡ All Domains <span id="tab-count-all" class="tab-count">0</span></div>
+    <div class="dtab-item gen" onclick="switchDomain('gen',this)">🔥 Generation <span id="tab-count-gen" class="tab-count">0</span></div>
+    <div class="dtab-item tx" onclick="switchDomain('tx',this)">🔌 Transmission <span id="tab-count-tx" class="tab-count">0</span></div>
+    <div class="dtab-item dx" onclick="switchDomain('dx',this)">🏘️ Distribution <span id="tab-count-dx" class="tab-count">0</span></div>
+    <div class="dtab-item bill" onclick="switchDomain('bill',this)">💳 Billing <span id="tab-count-bill" class="tab-count">0</span></div>
+    <div class="dtab-item cx" onclick="switchDomain('cx',this)">🎧 Customer Care <span id="tab-count-cx" class="tab-count">0</span></div>
   <!-- TOP-LEVEL VIEW TABS (Registry vs Map) -->
   <div style="display:flex;align-items:center;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 20px;flex-shrink:0;">
     <div class="view-tab active" id="vtab-registry" onclick="switchView('registry')">🗄️ &nbsp;CI Registry</div>
     <div class="view-tab" id="vtab-map" onclick="switchView('map')">🌐 &nbsp;Architecture Map</div>
     <div style="flex:1"></div>
-    <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;">CONFIGURATION MODULE</span>
-  </div>
+    <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-muted);letter-spacing:2px;">CONFIGURATION MODULE</span>
+</div>
 
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+    <div class="search-box">
+      <span style="color:var(--text-muted);font-size:14px;">🔍</span>
+      <input type="text" id="search-input" placeholder="Search CI name, host, vendor, version..." oninput="renderTable()">
   <!-- ===== REGISTRY VIEW ===== -->
   <div id="view-registry" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
-    
     <!-- DOMAIN TABS -->
     <div class="dtab" id="domain-tabs">
       <div class="dtab-item active all" onclick="switchDomain('all',this)">⚡ All Domains <span id="tab-count-all" class="tab-count">0</span></div>
@@ -443,7 +63,32 @@ body{
       <div class="dtab-item dx" onclick="switchDomain('dx',this)">🏘️ Distribution <span id="tab-count-dx" class="tab-count">0</span></div>
       <div class="dtab-item bill" onclick="switchDomain('bill',this)">💳 Billing <span id="tab-count-bill" class="tab-count">0</span></div>
       <div class="dtab-item cx" onclick="switchDomain('cx',this)">🎧 Customer Care <span id="tab-count-cx" class="tab-count">0</span></div>
-    </div>
+</div>
+    <select class="filter-sel" id="filter-category" onchange="renderTable()">
+      <option value="">All Categories</option>
+      <option>Applications</option>
+      <option>Integrations</option>
+      <option>Server Hosts</option>
+      <option>Database Hosts</option>
+      <option>Network Components</option>
+      <option>Security & Auth</option>
+      <option>Storage & Backup</option>
+      <option>Monitoring & Logging</option>
+    </select>
+    <select class="filter-sel" id="filter-criticality" onchange="renderTable()">
+      <option value="">All Criticality</option>
+      <option>Critical</option>
+      <option>High</option>
+      <option>Medium</option>
+      <option>Low</option>
+    </select>
+    <select class="filter-sel" id="filter-review" onchange="renderTable()">
+      <option value="">All Review Status</option>
+      <option value="overdue">Overdue</option>
+      <option value="due">Due Soon</option>
+      <option value="ok">Up to Date</option>
+    </select>
+    <span class="ci-count-badge" id="ci-count-label">0 items</span>
 
     <!-- TOOLBAR -->
     <div class="toolbar">
@@ -480,9 +125,11 @@ body{
 
     <!-- CI TABLE -->
     <div class="ci-table-wrap" id="ci-table-wrap"></div>
+</div>
 
-  </div>
-
+  <!-- CI TABLE -->
+  <div class="ci-table-wrap" id="ci-table-wrap">
+    <!-- Rendered by JS -->
   <!-- ===== ARCHITECTURE MAP VIEW ===== -->
   <div id="view-map" style="display:none;flex:1;flex-direction:column;overflow:hidden;position:relative;">
 
@@ -536,143 +183,11 @@ body{
       <div class="leg-item-bar"><div style="width:20px;height:1px;background:#888;border-top:1px dashed #888;margin-right:5px;"></div>Indirect</div>
       <div class="leg-item-bar"><div style="width:8px;height:8px;border-radius:50%;background:var(--danger);margin-right:5px;"></div>Overdue review</div>
     </div>
-
-  </div>
-
 </div>
-
 </div>
-
 </div>
-
-<script>
-
-// =============================================
-// SAMPLE DATA
-// =============================================
-const CI_DATA = [
-  {id:'ci001',name:'EMS Core',alias:'EMS-GEN-001',domain:'gen',category:'Applications',vendor:'GE',product:'PMAX',version:'7.8.2',host:'ems-gen-01.grid.local',env:'prod',owner:'GenOps',team:'T1',criticality:'Critical',lastReviewed:'2025-12-15',compliance:['ISO','GDPR'],notes:'Primary generation EMS system controlling all generation assets across the utility.'},
-  {id:'ci002',name:'PI Historian',alias:'PI-HISTO-001',domain:'gen',category:'Applications',vendor:'OSIsoft',product:'AVEVA PI',version:'2023',host:'pi-server-01.grid.local',env:'prod',owner:'DataOps',team:'T2',criticality:'High',lastReviewed:'2025-11-20',compliance:['ISO'],notes:'Historian for real-time data logging and archival.'},
-  {id:'ci003',name:'DCS Interface',alias:'DCS-IF-001',domain:'gen',category:'Integrations',vendor:'Honeywell',product:'DCS Bridge',version:'1.2.1',host:'dcs-if-01.grid.local',env:'prod',owner:'FieldOps',team:'T3',criticality:'Critical',lastReviewed:'2025-12-01',compliance:[],notes:'Interface between DCS systems and SCADA.'},
-  {id:'ci004',name:'Plant CMMS',alias:'SAP-CMMS-001',domain:'gen',category:'Applications',vendor:'SAP',product:'Plant Maintenance',version:'S4/2023',host:'sap-cmms-01.grid.local',env:'prod',owner:'Maintenance',team:'T4',criticality:'High',lastReviewed:'2025-10-05',compliance:['ISO'],notes:'Preventive and corrective maintenance management.'},
-  {id:'ci007',name:'Unit Commitment',alias:'UC-OPT-001',domain:'gen',category:'Applications',vendor:'ABB',product:'Optimizer',version:'3.5.0',host:'uc-opt-01.grid.local',env:'prod',owner:'Planning',team:'T5',criticality:'High',lastReviewed:'2025-09-12',compliance:[],notes:'Day-ahead generation unit commitment optimization.'},
-  {id:'ci012',name:'TX SCADA/EMS',alias:'SCADA-TX-001',domain:'tx',category:'Applications',vendor:'ABB',product:'Network Manager',version:'5.2.1',host:'scada-tx-01.grid.local',env:'prod',owner:'TxOps',team:'T6',criticality:'Critical',lastReviewed:'2025-12-18',compliance:['ISO','GDPR'],notes:'Primary transmission SCADA and EMS platform.'},
-  {id:'ci013',name:'Network Model',alias:'NM-SIM-001',domain:'tx',category:'Applications',vendor:'Siemens',product:'PSCAD',version:'2023.1',host:'nm-sim-01.grid.local',env:'prod',owner:'Planning',team:'T5',criticality:'Medium',lastReviewed:'2025-11-30',compliance:[],notes:'Dynamic network model simulation and analysis.'},
-  {id:'ci014',name:'WAMS / PMU',alias:'WAMS-PMU-001',domain:'tx',category:'Monitoring & Logging',vendor:'SEL',product:'Analytics',version:'4.1.0',host:'wams-01.grid.local',env:'prod',owner:'GridMon',team:'T7',criticality:'High',lastReviewed:'2025-12-05',compliance:[],notes:'Wide-area monitoring via phasor measurement units.'},
-  {id:'ci015',name:'TX GIS Assets',alias:'GIS-TX-001',domain:'tx',category:'Network Components',vendor:'Esri',product:'ArcGIS',version:'10.9.1',host:'gis-tx-01.grid.local',env:'prod',owner:'GIS-Team',team:'T8',criticality:'Medium',lastReviewed:'2025-11-22',compliance:[],notes:'Transmission network asset geospatial database.'},
-  {id:'ci016',name:'Market Interface',alias:'ETERM-MKT-001',domain:'tx',category:'Integrations',vendor:'ABB',product:'e-Terra',version:'2.4.2',host:'eterm-01.grid.local',env:'prod',owner:'Markets',team:'T9',criticality:'High',lastReviewed:'2025-12-10',compliance:[],notes:'Electricity market data and settlement interface.'},
-  {id:'ci021',name:'AMI Head-End',alias:'AMI-HE-001',domain:'dx',category:'Applications',vendor:'Itron',product:'OpenWay',version:'7.1.2',host:'ami-he-01.grid.local',env:'prod',owner:'Metering',team:'T10',criticality:'Critical',lastReviewed:'2025-12-20',compliance:['GDPR'],notes:'Advanced metering infrastructure head-end system.'},
-  {id:'ci022',name:'OMS',alias:'OMS-DX-001',domain:'dx',category:'Applications',vendor:'GE',product:'ADMS OMS',version:'10.5.1',host:'oms-dx-01.grid.local',env:'prod',owner:'DxOps',team:'T11',criticality:'Critical',lastReviewed:'2025-12-08',compliance:['ISO'],notes:'Outage management system for distribution operations.'},
-  {id:'ci023',name:'DMS / ADMS',alias:'DMS-ADMS-001',domain:'dx',category:'Applications',vendor:'Schneider',product:'ArcFM',version:'11.2.0',host:'dms-01.grid.local',env:'prod',owner:'DxOps',team:'T11',criticality:'High',lastReviewed:'2025-12-03',compliance:['ISO'],notes:'Distribution management and advanced distribution systems.'},
-  {id:'ci024',name:'DX GIS Assets',alias:'GIS-DX-001',domain:'dx',category:'Network Components',vendor:'Esri',product:'ArcGIS',version:'10.9.1',host:'gis-dx-01.grid.local',env:'prod',owner:'GIS-Team',team:'T8',criticality:'Medium',lastReviewed:'2025-11-25',compliance:[],notes:'Distribution network asset geospatial database.'},
-  {id:'ci026',name:'DERMS',alias:'DERMS-DX-001',domain:'dx',category:'Applications',vendor:'AutoGrid',product:'Flex',version:'3.2.1',host:'derms-01.grid.local',env:'prod',owner:'DxOps',team:'T11',criticality:'High',lastReviewed:'2025-12-01',compliance:[],notes:'Distributed energy resources management system.'},
-  {id:'ci031',name:'Billing Engine',alias:'CCB-BILL-001',domain:'bill',category:'Applications',vendor:'Oracle',product:'CC&B',version:'2023.1',host:'bill-ccb-01.grid.local',env:'prod',owner:'Billing',team:'T12',criticality:'Critical',lastReviewed:'2025-12-15',compliance:['GDPR','ISO'],notes:'Core billing and customer care system.'},
-  {id:'ci032',name:'MDM',alias:'MDM-001',domain:'bill',category:'Applications',vendor:'Itron',product:'MDM',version:'9.8.0',host:'mdm-01.grid.local',env:'prod',owner:'Metering',team:'T10',criticality:'Critical',lastReviewed:'2025-12-12',compliance:['GDPR'],notes:'Meter data management system.'},
-  {id:'ci033',name:'Rate Engine',alias:'RATE-ENG-001',domain:'bill',category:'Applications',vendor:'Internal',product:'Rate API',version:'1.5.3',host:'rate-eng-01.grid.local',env:'prod',owner:'Billing',team:'T12',criticality:'High',lastReviewed:'2025-11-18',compliance:[],notes:'Rate calculation and tariff management engine.'},
-  {id:'ci034',name:'Payment Gateway',alias:'PAY-GW-001',domain:'bill',category:'Integrations',vendor:'Worldpay/FIS',product:'Payment API',version:'2023.2',host:'pay-gw-01.grid.local',env:'prod',owner:'Finance',team:'T13',criticality:'Critical',lastReviewed:'2025-12-10',compliance:['GDPR','ISO'],notes:'Payment processing and PCI-DSS compliant gateway.'},
-  {id:'ci041',name:'CRM',alias:'SFDC-CRM-001',domain:'cx',category:'Applications',vendor:'Salesforce',product:'CRM',version:'Spring 2025',host:'sfdc-crm-01.grid.local',env:'prod',owner:'CxTeam',team:'T14',criticality:'High',lastReviewed:'2025-12-18',compliance:['GDPR'],notes:'Customer relationship management platform.'},
-  {id:'ci042',name:'CIS / Portal',alias:'CIS-PORTAL-001',domain:'cx',category:'Applications',vendor:'Oracle',product:'CC&B Web',version:'2023.1',host:'cis-portal-01.grid.local',env:'prod',owner:'CxTeam',team:'T14',criticality:'High',lastReviewed:'2025-12-05',compliance:['GDPR','ISO'],notes:'Customer information system and web portal.'},
-  {id:'ci043',name:'IVR / Contact Center',alias:'GENESYS-IVR-001',domain:'cx',category:'Applications',vendor:'Genesys',product:'Cloud',version:'2025.1',host:'genesys-ivr-01.grid.local',env:'prod',owner:'ContactCenter',team:'T15',criticality:'High',lastReviewed:'2025-12-08',compliance:['GDPR'],notes:'Interactive voice response and contact center platform.'},
-  {id:'ci044',name:'Mobile App',alias:'MOBILE-APP-001',domain:'cx',category:'Applications',vendor:'Internal',product:'iOS/Android',version:'3.2.1',host:'app-api-01.grid.local',env:'prod',owner:'AppDev',team:'T16',criticality:'Medium',lastReviewed:'2025-11-30',compliance:['GDPR'],notes:'Customer mobile application for account management.'},
-  {id:'ci045',name:'Outage Notification',alias:'NOTIF-001',domain:'cx',category:'Monitoring & Logging',vendor:'Digi',product:'Notifi',version:'2.1.0',host:'notif-01.grid.local',env:'prod',owner:'CxTeam',team:'T14',criticality:'High',lastReviewed:'2025-12-15',compliance:['GDPR'],notes:'Outage notification and event alerting system.'},
-];
-
-const CRIT_CLASS = {Critical:'badge-critical',High:'badge-high',Medium:'badge-medium',Low:'badge-low'};
-const COMP_CLASS = {ISO:'comp-iso',GDPR:'comp-gdpr'};
-const DOMAIN_NAMES = {all:'All Domains',gen:'Generation',tx:'Transmission',dx:'Distribution',bill:'Billing',cx:'Customer Care'};
-const DOMAIN_COLORS = {gen:'#f59e0b',tx:'#38bdf8',dx:'#a78bfa',bill:'#fb7185',cx:'#00e5b0'};
-
-let currentDomain = 'all';
-
-// =============================================
-// REGISTRY TABLE
-// =============================================
-function switchDomain(domain, elem) {
-  currentDomain = domain;
-  document.querySelectorAll('.dtab-item').forEach(e => e.classList.remove('active'));
-  elem.classList.add('active');
-  renderTable();
-}
-
-function formatDate(d) {
-  if (!d) return '—';
-  const now = new Date();
-  const date = new Date(d);
-  const diff = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-  if (diff < 1) return 'Today';
-  if (diff === 1) return 'Yesterday';
-  if (diff < 30) return `${diff}d ago`;
-  return date.toLocaleDateString('en-US', {month:'short',day:'numeric'});
-}
-
-function getReviewStatus(ci) {
-  const lastReviewed = new Date(ci.lastReviewed);
-  const now = new Date();
-  const daysAgo = Math.floor((now - lastReviewed) / (1000 * 60 * 60 * 24));
-  if (daysAgo > 90) return {status:'overdue',label:'OVERDUE'};
-  if (daysAgo > 60) return {status:'due',label:'DUE SOON'};
-  return {status:'ok',label:'UP TO DATE'};
-}
-
-function renderTable() {
-  const search = document.getElementById('search-input').value.toLowerCase();
-  const cat = document.getElementById('filter-category').value;
-  const crit = document.getElementById('filter-criticality').value;
-  const rev = document.getElementById('filter-review').value;
-
-  let filtered = CI_DATA.filter(ci => {
-    if (currentDomain !== 'all' && ci.domain !== currentDomain) return false;
-    if (search && !(ci.name.toLowerCase().includes(search) || ci.alias.toLowerCase().includes(search) || ci.host.toLowerCase().includes(search) || ci.vendor.toLowerCase().includes(search) || ci.version.toLowerCase().includes(search))) return false;
-    if (cat && ci.category !== cat) return false;
-    if (crit && ci.criticality !== crit) return false;
-    if (rev) {
-      const rs = getReviewStatus(ci);
-      if (rs.status !== rev) return false;
-    }
-    return true;
-  });
-
-  // Update tab counts
-  document.querySelectorAll('.tab-count').forEach(el => {
-    const d = el.parentElement.parentElement.className.split(' ').find(c => c !== 'dtab-item');
-    const count = d === 'all' ? CI_DATA.length : CI_DATA.filter(c => c.domain === d).length;
-    el.textContent = count;
-  });
-
-  document.getElementById('ci-count-label').textContent = `${filtered.length} item${filtered.length!==1?'s':''}`;
-
-  const html = `
-    <table class="ci-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Category</th>
-          <th>Vendor / Product</th>
-          <th>Host</th>
-          <th>Criticality</th>
-          <th>Last Reviewed</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${filtered.map(ci => {
-          const rs = getReviewStatus(ci);
-          const rsClass = rs.status === 'overdue' ? 'badge-critical' : rs.status === 'due' ? 'badge-high' : 'badge-low';
-          return `<tr onclick="alert('CI Details: ' + '${ci.name}')">
-            <td><div class="ci-name">${ci.alias}</div><div class="ci-vendor">${ci.name}</div></td>
-            <td>${ci.category}</td>
-            <td><div class="ci-vendor">${ci.vendor}</div><div style="font-size:10px;color:var(--text-muted)">${ci.product} v${ci.version}</div></td>
-            <td><code style="font-size:10px">${ci.host}</code></td>
-            <td><span class="badge ${CRIT_CLASS[ci.criticality]||''}">${ci.criticality}</span></td>
-            <td><span style="font-size:10px;color:var(--text-secondary)">${formatDate(ci.lastReviewed)}</span></td>
-            <td><span class="badge ${rsClass}">${rs.label}</span></td>
-          </tr>`;
-        }).join('')}
-      </tbody>
-    </table>
-  `;
-
-  document.getElementById('ci-table-wrap').innerHTML = html;
+@@ -1048,6 +1136,399 @@
+setTimeout(()=>t.classList.remove('show'),3500);
 }
 
 // =============================================
@@ -777,7 +292,6 @@ function isMapEdgeVisible(e) {
   const fn=nodeByMapId(e.f), tn=nodeByMapId(e.t);
   return fn.domain===mapFilter || tn.domain===mapFilter || fn.domain==='ctrl' || tn.domain==='ctrl';
 }
-
 function isMapNodeVisible(n) {
   if (mapFilter==='all') return true;
   if (n.domain===mapFilter || n.domain==='ctrl') return true;
@@ -785,6 +299,7 @@ function isMapNodeVisible(n) {
 }
 
 function getNodeReviewStatus(n) {
+  // Find linked CI and check review status
   if (!n.ciIds || !n.ciIds.length) return 'ok';
   const ci = CI_DATA.find(c => n.ciIds.includes(c.id));
   if (!ci) return 'ok';
@@ -843,6 +358,7 @@ function drawMapEdge(e) {
   mapCtx.moveTo(x1,y1);
   mapCtx.quadraticCurveTo(mx,my,x2,y2);
   mapCtx.stroke();
+  // Arrowhead at target
   if (visible) {
     const t=0.94;
     const qx=(1-t)*(1-t)*x1+2*(1-t)*t*mx+t*t*x2;
@@ -885,21 +401,27 @@ function drawMapNode(n) {
   const rs=getNodeReviewStatus(n);
   mapCtx.save();
   mapCtx.globalAlpha=visible?1:0.15;
+  // Glow for selected
   if(isSel){
     mapCtx.shadowColor=col; mapCtx.shadowBlur=20;
     mapCtx.strokeStyle=col; mapCtx.lineWidth=2.5;
     mapCtx.beginPath(); mapCtx.arc(x,y,r+5,0,Math.PI*2); mapCtx.stroke();
     mapCtx.shadowBlur=0;
   }
+  // Background
   mapCtx.fillStyle='#0d1e1b';
   mapCtx.beginPath(); mapCtx.arc(x,y,r,0,Math.PI*2); mapCtx.fill();
+  // Color fill
   mapCtx.fillStyle=col+(isSel?'35':isHov?'25':'12');
   mapCtx.beginPath(); mapCtx.arc(x,y,r,0,Math.PI*2); mapCtx.fill();
+  // Border
   mapCtx.strokeStyle=col;
   mapCtx.lineWidth=isSel?2:isHov?1.5:0.8;
   mapCtx.beginPath(); mapCtx.arc(x,y,r,0,Math.PI*2); mapCtx.stroke();
+  // Arc stripe
   mapCtx.strokeStyle=col; mapCtx.lineWidth=2.5; mapCtx.lineCap='round';
   mapCtx.beginPath(); mapCtx.arc(x,y,r-2,-Math.PI*0.7,-Math.PI*0.1); mapCtx.stroke();
+  // Overdue indicator
   if(rs==='overdue'&&visible){
     mapCtx.fillStyle='#ef4444';
     mapCtx.beginPath(); mapCtx.arc(x+r-4,y-r+4,5,0,Math.PI*2); mapCtx.fill();
@@ -911,6 +433,7 @@ function drawMapNode(n) {
     mapCtx.fillStyle='#f59e0b';
     mapCtx.beginPath(); mapCtx.arc(x+r-4,y-r+4,4,0,Math.PI*2); mapCtx.fill();
   }
+  // Label
   const lines=n.label.split(' ');
   mapCtx.fillStyle=isSel?col:'#e8f5f2';
   mapCtx.font=`500 ${n.domain==='ctrl'?10:9}px 'IBM Plex Mono'`;
@@ -988,6 +511,7 @@ function renderMapCIPanel(node) {
   const rsColor={overdue:'var(--danger)',due:'var(--warn)',ok:'var(--success)'}[rs.status]||'var(--text-muted)';
   mapSelectedCiId = ci ? ci.id : null;
 
+  // Connected nodes
   const connectedIds=MAP_EDGES.filter(e=>e.f===node.id||e.t===node.id).map(e=>e.f===node.id?e.t:e.f);
   const connNodes=[...new Set(connectedIds)].map(id=>MAP_NODES.find(n=>n.id===id)).filter(Boolean);
 
@@ -1039,6 +563,7 @@ function selectMapNode(nodeId) {
 
 function openCIFromMap() {
   if(!mapSelectedCiId) return;
+  // Switch to registry, scroll to CI
   switchView('registry');
   setTimeout(()=>{
     document.getElementById('search-input').value=CI_DATA.find(c=>c.id===mapSelectedCiId)?.name||'';
@@ -1048,8 +573,7 @@ function openCIFromMap() {
 
 function openReviewFromMap() {
   if(!mapSelectedCiId) return;
-  const ci = CI_DATA.find(c=>c.id===mapSelectedCiId);
-  if(ci) alert(`Marked ${ci.name} as reviewed on ${new Date().toLocaleDateString()}`);
+  openReviewModal(mapSelectedCiId);
 }
 
 function setMapFilter(f, btn) {
@@ -1059,10 +583,6 @@ function setMapFilter(f, btn) {
   btn.classList.add('active');
 }
 
-// Init on load
-renderTable();
-
-</script>
-
-</body>
-</html>
+// =============================================
+// INIT
+// =============================================
