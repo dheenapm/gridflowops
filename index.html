@@ -46,6 +46,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg1);color:var(--text1);f
 .nav-divider{height:1px;background:var(--border);margin:6px 10px;}
 .sidebar-power{padding:10px 16px 12px;border-top:1px solid var(--border);margin-top:auto;}
 .power-line{height:2px;background:linear-gradient(90deg,var(--accent),var(--warn),var(--danger),var(--tx),var(--accent));border-radius:1px;margin-bottom:8px;animation:powerpulse 3s ease-in-out infinite;}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 @keyframes powerpulse{0%,100%{opacity:0.4;}50%{opacity:1;}}
 .sidebar-user{display:flex;align-items:center;gap:8px;}
 .user-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono';font-size:10px;font-weight:500;color:var(--bg1);flex-shrink:0;}
@@ -474,13 +475,13 @@ tbody td{padding:8px 10px;color:var(--text2);vertical-align:middle;}
         </select>
         <span style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);" id="cal-count-label"></span>
         <div style="display:flex;border:1px solid var(--border);border-radius:2px;overflow:hidden;">
-          <button class="btn btn-outline btn-sm active" id="cal-btn-month" onclick="setCalView('month')" style="border:none;border-radius:0;">Month</button>
+          <button class="btn btn-outline btn-sm" id="cal-btn-day" onclick="setCalView('day')" style="border:none;border-radius:0;">Day</button><button class="btn btn-outline btn-sm active" id="cal-btn-month" onclick="setCalView('month')" style="border:none;border-radius:0;">Month</button>
           <button class="btn btn-outline btn-sm" id="cal-btn-week" onclick="setCalView('week')" style="border:none;border-radius:0;border-left:1px solid var(--border);">Week</button>
         </div>
       </div>
       <div class="card" style="overflow:hidden;">
         <div id="cal-freeze-legend" style="padding:6px 12px;border-bottom:1px solid var(--border);background:var(--bg3);font-family:'IBM Plex Mono';font-size:8px;color:var(--text3);display:flex;gap:14px;align-items:center;">
-          <span>❄ Freeze window</span>
+          <span>❄ Freeze window (dbl-click day to manage)</span>
           <span style="display:flex;align-items:center;gap:4px;"><div style="width:10px;height:10px;border-radius:50%;background:var(--success);"></div>Normal</span>
           <span style="display:flex;align-items:center;gap:4px;"><div style="width:10px;height:10px;border-radius:50%;background:var(--warn);"></div>⚠ Density warning (3+)</span>
           <button class="btn btn-outline btn-sm" style="margin-left:auto;" onclick="openFreezeManager()">Manage Freeze Windows</button>
@@ -3568,6 +3569,920 @@ function saveNewRelease() {
   toast(`${existing?'Updated':'Created'}: ${rel.relNum}. ${existing?'':'Submit for risk assessment when ready.'}`);
   renderReleases();
   setTimeout(()=>openRelease(rel.id), 300);
+}
+
+
+
+
+// ============================================================
+// GRIDFLOW v3.1 — FINAL COMPLETE PATCH
+// Adds: Status workflow bar, OIRB fixed-slot picker,
+//       smart checklists, Day/Week/Month calendar,
+//       freeze window creator on calendar,
+//       removes duplicate fields
+// ============================================================
+
+// ── OIRB Fixed Schedule Config ────────────────────────────────
+let OIRB_DAY = 2; // 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat
+let OIRB_HOUR = 14;
+let OIRB_MIN = 0;
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+function getOIRBSlots(count=6) {
+  const slots = [];
+  const d = new Date();
+  d.setHours(0,0,0,0);
+  let found = 0;
+  while(found < count) {
+    d.setDate(d.getDate()+1);
+    if(d.getDay()===OIRB_DAY) {
+      const slot = new Date(d);
+      slot.setHours(OIRB_HOUR, OIRB_MIN, 0, 0);
+      slots.push(new Date(slot));
+      found++;
+    }
+  }
+  return slots;
+}
+
+// ── Status workflow bar ───────────────────────────────────────
+const WORKFLOW_STATES = [
+  {id:'draft',          l:'Draft',       i:'✏️'},
+  {id:'risk_assessment',l:'Assessment',  i:'🎯'},
+  {id:'oirb_review',    l:'OIRB Review', i:'👥'},
+  {id:'approved',       l:'Approved',    i:'✅'},
+  {id:'scheduled',      l:'Scheduled',   i:'📅'},
+  {id:'deploying',      l:'Deploying',   i:'🚀'},
+  {id:'deployed',       l:'Deployed',    i:'✔'},
+  {id:'closed',         l:'Closed',      i:'🏁'},
+];
+const SIDE_STATES = ['rejected','deferred','rolled_back','cancelled'];
+
+function buildWorkflowBar(r) {
+  const sm = STATUS_META[r.status];
+  const isSide = SIDE_STATES.includes(r.status);
+
+  if(isSide) {
+    return `<div style="background:${sm.bg};border:1px solid ${sm.c}50;border-radius:4px;padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+      <div style="width:10px;height:10px;border-radius:50%;background:${sm.c};box-shadow:0 0 6px ${sm.c}80;flex-shrink:0;"></div>
+      <div style="font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:${sm.c};">${sm.l.toUpperCase()}</div>
+      ${r.rollbackReason?`<div style="font-size:11px;color:var(--text2);margin-left:8px;">${r.rollbackReason}</div>`:''}
+      ${r.oirbDecision?.conditions?.length?`<div style="font-size:11px;color:var(--text2);margin-left:8px;">Reason: ${r.oirbDecision.conditions.join('; ')}</div>`:''}
+      <div style="flex:1;"></div>
+      <button class="btn btn-accent btn-sm" onclick="cloneRelease('${r.id}')">⎘ Clone & Rework</button>
+    </div>`;
+  }
+
+  const curIdx = WORKFLOW_STATES.findIndex(s=>s.id===r.status);
+
+  let bar = `<div style="margin-bottom:16px;">
+    <div style="display:flex;align-items:center;background:var(--bg3);border:1px solid var(--border);border-radius:4px;overflow:hidden;margin-bottom:10px;">`;
+
+  WORKFLOW_STATES.forEach((s,i) => {
+    const isDone = i < curIdx;
+    const isCur  = i === curIdx;
+    const isFut  = i > curIdx;
+    const c = isCur ? sm.c : isDone ? 'var(--success)' : 'var(--text3)';
+    const bg = isCur ? sm.bg : isDone ? 'rgba(34,197,94,0.08)' : 'transparent';
+    bar += `<div style="flex:1;padding:8px 4px;text-align:center;background:${bg};border-right:1px solid var(--border);position:relative;">
+      <div style="font-size:13px;">${isDone?'✓':s.i}</div>
+      <div style="font-family:'IBM Plex Mono';font-size:7px;text-transform:uppercase;letter-spacing:0.5px;color:${c};margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.l}</div>
+      ${isCur?`<div style="position:absolute;bottom:0;left:0;right:0;height:2px;background:${sm.c};"></div>`:''}
+    </div>`;
+  });
+
+  bar += `</div>`;
+
+  // Action button for current state
+  const actions = {
+    draft:           `<button class="btn btn-accent" onclick="submitRelease('${r.id}')">Submit for Risk Assessment →</button>${!r.chg?'<span style="font-family:\'IBM Plex Mono\';font-size:9px;color:var(--danger);margin-left:8px;">⚠ CHG number required first</span>':''}`,
+    risk_assessment: `<div style="display:flex;align-items:center;gap:8px;"><div style="width:14px;height:14px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;"></div><span style="font-family:'IBM Plex Mono';font-size:10px;color:var(--accent);">Auto-calculating risk score and impact…</span></div>`,
+    oirb_review:     `<button class="btn btn-accent" onclick="openOIRBSlotPicker('${r.id}')">📅 Pick OIRB Meeting Slot →</button>`,
+    approved:        `<button class="btn btn-accent" onclick="scrollToSection('sec-readiness-${r.id}')">📋 Complete Readiness Checklist →</button>`,
+    scheduled:       (r.readinessChecklist||[]).every(i=>i.checked||i.na) ? `<button class="btn btn-accent" onclick="beginDeployment('${r.id}')">🚀 Begin Deployment →</button>` : `<button class="btn btn-outline" disabled>⏳ Complete readiness checklist first (${(r.readinessChecklist||[]).filter(i=>i.checked||i.na).length}/${(r.readinessChecklist||[]).length} done)</button>`,
+    deploying:       `<div style="display:flex;gap:8px;align-items:center;"><button class="btn btn-success btn-sm" onclick="scrollToSection('sec-deploy-${r.id}')">${(r.components||[]).every(c=>['deployed','skipped'].includes(c.deployStatus))?'✓ Mark as Fully Deployed →':'🔧 Update Deployment Log'}</button><button class="btn btn-danger btn-sm" onclick="openRollback('${r.id}')">↩ Trigger Rollback</button></div>`,
+    deployed:        `<button class="btn btn-accent" onclick="scrollToSection('sec-postdeploy-${r.id}')">🔍 Complete Post-Deploy Review →</button>`,
+    closed:          `<div style="display:flex;gap:8px;"><button class="btn btn-outline btn-sm" onclick="cloneRelease('${r.id}')">⎘ Clone</button><button class="btn btn-outline btn-sm" onclick="exportEvidence('${r.id}')">⬇ Evidence Package</button></div>`,
+  };
+
+  const btnHtml = actions[r.status] || '';
+
+  bar += `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:7px;">
+      <div style="width:9px;height:9px;border-radius:50%;background:${sm.c};box-shadow:0 0 5px ${sm.c}80;${r.status==='deploying'?'animation:powerpulse 1s infinite;':''}"></div>
+      <span style="font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:${sm.c};">${sm.l}</span>
+      ${r.isEmergency?'<span class="badge" style="background:var(--danger-dim);color:var(--danger);border:1px solid rgba(239,68,68,0.4);">🚨 EMERGENCY</span>':''}
+      ${r.rl?rBadge(r.rl):''}
+    </div>
+    <div style="flex:1;"></div>
+    ${btnHtml}
+    ${['draft','rejected'].includes(r.status)?`<button class="btn btn-outline btn-sm" onclick="closeMod('mod-rel');openNewRelease('${r.id}')">✎ Edit</button>`:''}
+    ${!['closed','cancelled','rolled_back'].includes(r.status)?`<button class="btn btn-outline btn-sm" style="color:var(--danger);border-color:rgba(239,68,68,0.3);" onclick="cancelRelease('${r.id}')">✕ Cancel</button>`:''}
+  </div></div>`;
+
+  return bar;
+}
+
+function scrollToSection(id) {
+  const el = document.getElementById(id);
+  if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// ── OIRB Slot Picker ──────────────────────────────────────────
+function openOIRBSlotPicker(rId) {
+  const r = RELS.find(x=>x.id===rId); if(!r) return;
+  const slots = getOIRBSlots(6);
+  const existing = OIRB_MEETINGS.filter(m=>m.status==='scheduled');
+
+  const slotsHtml = slots.map((slot,i) => {
+    const ds = slot.toISOString();
+    const dateStr = slot.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    const timeStr = slot.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})+ ' UTC';
+    const alreadyUsed = existing.some(m=>m.date.slice(0,10)===ds.slice(0,10));
+    const relCount = RELS.filter(r2=>r2.status==='oirb_review'&&r2.id!==rId&&(r2.oirbMeeting?.scheduledAt||'').slice(0,10)===ds.slice(0,10)).length;
+    return `<div style="border:1px solid ${alreadyUsed?'var(--warn)':'var(--border)'};border-radius:3px;padding:12px 14px;margin-bottom:7px;cursor:pointer;transition:all 0.15s;background:${alreadyUsed?'var(--warn-dim)':'var(--bg3)'};" onclick="selectOIRBSlot('${rId}','${ds}')" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='${alreadyUsed?'var(--warn)':'var(--border)'}'">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:36px;height:36px;background:${alreadyUsed?'var(--warn-dim)':'var(--accent-dim)'};border-radius:3px;display:flex;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:${alreadyUsed?'var(--warn)':'var(--accent)'};">${slot.getDate()}</div>
+        <div>
+          <div style="font-weight:600;color:var(--text1);font-size:13px;">${dateStr}</div>
+          <div style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);">${timeStr}${alreadyUsed?` · ${relCount} release${relCount!==1?'s':''} already in this slot`:''}</div>
+        </div>
+        <div style="margin-left:auto;font-family:'IBM Plex Mono';font-size:9px;color:var(--accent);">Select →</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const itCabHtml = `<div style="margin-top:14px;"><div style="font-family:'IBM Plex Mono';font-size:8px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:5px;">IT CAB Status</div>
+  <select class="fs" id="oirb-slot-itcab">
+    <option value="not_required">Not Required</option>
+    <option value="to_be_presented">To Be Presented at IT CAB</option>
+    <option value="presented">Already Presented at IT CAB</option>
+  </select></div>`;
+
+  // Build modal content inline
+  sv('mod-oirb-slot-title', `Pick OIRB Meeting Slot — ${r.relNum}`);
+  sv('mod-oirb-slot-body', `
+    <div style="padding:9px 12px;background:var(--info-dim);border:1px solid rgba(56,189,248,0.2);border-radius:3px;margin-bottom:14px;font-size:12px;color:var(--text2);">
+      OIRB meets every <strong style="color:var(--accent);">${DAY_NAMES[OIRB_DAY]} at ${String(OIRB_HOUR).padStart(2,'0')}:${String(OIRB_MIN).padStart(2,'0')} UTC</strong>. Select the meeting where you want this release reviewed.
+    </div>
+    <div style="font-family:'IBM Plex Mono';font-size:8px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:8px;">Available Meeting Slots</div>
+    ${slotsHtml}
+    ${itCabHtml}
+    <div style="margin-top:10px;padding:8px;background:var(--warn-dim);border:1px solid rgba(245,158,11,0.2);border-radius:3px;font-size:11px;color:var(--warn);">
+      ⚠ OIRB is required because this release has risk score ${r.risk||'—'}/100${r.components?.some(c=>c.type==='OT / SCADA')?' and includes OT/SCADA components':''}.
+    </div>
+  `);
+  openMod('mod-oirb-slot');
+  window._oirbSlotRId = rId;
+}
+
+function selectOIRBSlot(rId, dateStr) {
+  const r = RELS.find(x=>x.id===rId); if(!r) return;
+  const itCab = document.getElementById('oirb-slot-itcab')?.value || 'not_required';
+  const meeting = {
+    id: gidN(),
+    date: dateStr,
+    location: `Board Room A / Teams — ${DAY_NAMES[OIRB_DAY]}s ${String(OIRB_HOUR).padStart(2,'0')}:${String(OIRB_MIN).padStart(2,'0')} UTC`,
+    agenda: `${r.relNum} — ${r.title}`,
+    attendees: OIRB_MEMBERS.map(m=>m.name),
+    relIds: [rId],
+    status: 'scheduled',
+    itCab,
+    minutes: '',
+    createdAt: new Date().toISOString().split('T')[0]
+  };
+  // Add to meetings or merge with existing slot
+  const existingSlot = OIRB_MEETINGS.find(m=>m.date.slice(0,10)===dateStr.slice(0,10)&&m.status==='scheduled');
+  if(existingSlot) {
+    if(!existingSlot.relIds.includes(rId)) existingSlot.relIds.push(rId);
+  } else {
+    OIRB_MEETINGS.unshift(meeting);
+  }
+  RELS = RELS.map(x=>x.id!==rId?x:{...x,
+    oirbMeeting:{scheduledAt:dateStr,location:meeting.location,itCab,attendees:OIRB_MEMBERS.map(m=>m.name)}
+  });
+  addAudit(r.owner,'OIRB slot selected',r.relNum,r.domain,`Meeting: ${new Date(dateStr).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})} ${String(OIRB_HOUR).padStart(2,'0')}:${String(OIRB_MIN).padStart(2,'0')} UTC`);
+  NOTIFS.unshift({id:gidN(),type:'oirb',msg:`📅 OIRB slot booked: ${r.relNum} — ${new Date(dateStr).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}`,ts:new Date().toISOString(),read:false,relId:rId});
+  updateNotifBadge();
+  closeMod('mod-oirb-slot');
+  toast(`✓ OIRB slot confirmed: ${new Date(dateStr).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}`);
+  openRelease(rId);
+}
+
+// ── Smart readiness checklist ─────────────────────────────────
+function smartReadiness(components) {
+  const types = (components||[]).map(c=>c.classification||c.type||'');
+  const base = [
+    {item:'Backup verified and tested — restoration confirmed working',cat:'base'},
+    {item:'Rollback procedure rehearsed in staging environment',cat:'base'},
+    {item:'Change window confirmed with Operations Control Room',cat:'base'},
+    {item:'All impacted domain leads notified and acknowledged',cat:'base'},
+    {item:'Vendor support confirmed available during deployment window',cat:'base'},
+    {item:'Test evidence reviewed and accepted by QA lead',cat:'base'},
+    {item:'Monitoring alerts configured for deployment window',cat:'base'},
+    {item:'Customer notification sent (if required)',cat:'base'},
+  ];
+  if(types.some(t=>t.includes('OT')||t.includes('Firmware')||t.includes('SCADA'))) {
+    base.push({item:'NERC CIP change authorization document completed and filed',cat:'ot'});
+    base.push({item:'OT/IT boundary firewall rules verified — no unintended exposure',cat:'ot'});
+    base.push({item:'Control room supervisor on-site and briefed',cat:'ot'});
+    base.push({item:'Vendor field engineer confirmed on-site or remote standby',cat:'ot'});
+  }
+  if(types.some(t=>t.includes('Database'))) {
+    base.push({item:'Full database backup taken and restoration tested on staging',cat:'db'});
+    base.push({item:'Rollback SQL scripts tested — execution time confirmed under estimate',cat:'db'});
+  }
+  if(types.some(t=>t.includes('Network')||t.includes('Security'))) {
+    base.push({item:'Network change peer-reviewed by second network engineer',cat:'net'});
+    base.push({item:'Rollback configuration saved and accessible during deployment',cat:'net'});
+  }
+  if(types.some(t=>t.includes('Certificate'))) {
+    base.push({item:'Certificate chain validated end-to-end on staging',cat:'cert'});
+    base.push({item:'Old certificate archived — rollback certificate available',cat:'cert'});
+  }
+  return base.map(b=>({...b,checked:false,by:null,at:null,na:false}));
+}
+
+function smartVerification(components) {
+  const types = (components||[]).map(c=>c.classification||c.type||'');
+  const base = [
+    {item:'Application accessible and responding — health check passed',cat:'base'},
+    {item:'Key business transactions tested and passing',cat:'base'},
+    {item:'No unplanned alerts or alarms triggered in control room',cat:'base'},
+    {item:'Performance metrics within expected thresholds',cat:'base'},
+    {item:'All impacted domain teams confirmed no issues',cat:'base'},
+    {item:'CI Registry updated with new deployed versions',cat:'base'},
+    {item:'Rollback capability confirmed still available',cat:'base'},
+    {item:'IT Lead sign-off received',cat:'signoff'},
+    {item:'Business Owner sign-off received',cat:'signoff'},
+    {item:'Release Manager final sign-off',cat:'signoff'},
+  ];
+  if(types.some(t=>t.includes('OT')||t.includes('Firmware')||t.includes('SCADA'))) {
+    base.splice(2,0,{item:'SCADA telemetry verified — all points reading correctly',cat:'ot'});
+    base.splice(3,0,{item:'Alarm subsystem functional — test alarm processed correctly',cat:'ot'});
+    base.splice(4,0,{item:'EMS historian confirming data being written correctly',cat:'ot'});
+  }
+  if(types.some(t=>t.includes('Database'))) {
+    base.splice(2,0,{item:'Database integrity check passed — no corruption',cat:'db'});
+    base.splice(3,0,{item:'Application connecting to DB — connection pool healthy',cat:'db'});
+  }
+  return base.map(b=>({...b,checked:false,by:null,at:null,na:false}));
+}
+
+// ── Complete Release Record Builder ───────────────────────────
+function openRelease(id) {
+  currentRelId = id;
+  const r = RELS.find(x=>x.id===id); if(!r) return;
+  sv('mod-rel-title', `${r.relNum} — ${r.title}`);
+  sv('mod-rel-body', buildFullRecord(r));
+  sv('mod-rel-footer', `<button class="btn btn-outline" onclick="closeMod('mod-rel')">Close</button><button class="btn btn-outline btn-sm" onclick="cloneRelease('${r.id}')">⎘ Clone</button>${r.status==='closed'?`<button class="btn btn-outline btn-sm" onclick="exportEvidence('${r.id}')">⬇ Evidence Package</button>`:''}`);
+  openMod('mod-rel');
+}
+
+function secHdr(icon,title,sub='') {
+  return `<div style="display:flex;align-items:center;gap:8px;padding:9px 0 7px;border-bottom:2px solid var(--border);margin:18px 0 12px;"><span style="font-size:15px;">${icon}</span><div><div style="font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text1);">${title}</div>${sub?`<div style="font-family:'IBM Plex Mono';font-size:8px;color:var(--text3);">${sub}</div>`:''}</div></div>`;
+}
+function kv(k,v) { return `<div style="background:var(--bg3);border:1px solid var(--border);padding:8px 10px;border-radius:2px;"><div style="font-family:'IBM Plex Mono';font-size:8px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:2px;">${k}</div><div style="font-size:12px;font-weight:500;color:var(--text1);overflow-wrap:break-word;">${v||'—'}</div></div>`; }
+
+function buildFullRecord(r) {
+  let h = '';
+
+  // ── Identification strip ──────────────────────────────────
+  h += `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;">
+    <span style="font-family:'IBM Plex Mono';font-size:11px;color:var(--accent);font-weight:600;">${r.relNum}</span>
+    ${r.chg?`<span style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);">/ ${r.chg}</span>`:'<span style="font-family:\'IBM Plex Mono\';font-size:9px;color:var(--danger);">⚠ No CHG number</span>'}
+    ${dBadge(r.domain)}
+    <span style="font-size:11px;color:var(--text3);">Owner: <strong style="color:var(--text2);">${r.owner||'—'}</strong></span>
+    <span style="font-size:11px;color:var(--text3);">Manager: <strong style="color:var(--text2);">${r.manager||'—'}</strong></span>
+    <span style="font-size:11px;color:var(--text3);">Priority: <strong style="color:${r.priority==='Critical'?'var(--danger)':r.priority==='High'?'var(--warn)':'var(--text2)'};">${r.priority||'Normal'}</strong></span>
+    <span style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);">${(r.changeTypes||[]).join(' · ')}</span>
+  </div>`;
+
+  // ── Status workflow bar ───────────────────────────────────
+  h += buildWorkflowBar(r);
+
+  // ── Freeze / conflict warnings ────────────────────────────
+  if(r.plannedStart) {
+    const fw = checkFreeze(r.plannedStart);
+    if(fw) h += `<div style="padding:8px 12px;background:var(--warn-dim);border:1px solid rgba(245,158,11,0.3);border-left:3px solid var(--warn);border-radius:2px;margin-bottom:8px;font-size:12px;color:var(--warn);">❄ <strong>Freeze Window:</strong> ${fw.name} — ${fw.reason}</div>`;
+  }
+  if((r.conflicts||[]).length) {
+    h += r.conflicts.map(c=>`<div style="padding:8px 12px;margin-bottom:5px;border-radius:2px;border-left:3px solid ${c.type==='hard'?'var(--danger)':c.type==='soft'?'var(--warn)':'var(--info)'};background:${c.type==='hard'?'var(--danger-dim)':c.type==='soft'?'var(--warn-dim)':'var(--info-dim)'};">
+      <div style="font-family:'IBM Plex Mono';font-size:9px;font-weight:700;color:${c.type==='hard'?'var(--danger)':c.type==='soft'?'var(--warn)':'var(--info)'};">${c.type.toUpperCase()} CONFLICT — ${c.relNum}</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:2px;">${c.reason}</div>
+    </div>`).join('');
+  }
+
+  // ── SEC 1: IDENTIFICATION ─────────────────────────────────
+  h += secHdr('📋','Release Details');
+  h += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:10px;">
+    ${kv('REL Number',r.relNum)}
+    ${kv('CHG Number',r.chg||'<span style="color:var(--danger)">MISSING</span>')}
+    ${kv('Priority',r.priority||'Normal')}
+    ${kv('Release Owner',r.owner||'—')}
+    ${kv('Release Manager',r.manager||'—')}
+    ${kv('Emergency',r.isEmergency?'🚨 YES':'No')}
+    ${kv('Planned Start',r.plannedStart?`${fmtD(r.plannedStart)} ${r.plannedStartTime||''} UTC`:'—')}
+    ${kv('Planned End',r.plannedStart?`${fmtD(r.plannedStart)} ${r.plannedEndTime||''} UTC`:'—')}
+    ${kv('Rollback Time Est.',r.rollbackTimeEst||'—')}
+  </div>`;
+
+  // ── SEC 2: WHAT IS CHANGING ───────────────────────────────
+  h += secHdr('🔧','What Is Changing');
+  if(!(r.components||[]).length) {
+    h += `<div style="padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:2px;color:var(--text3);font-size:12px;">No components defined.</div>`;
+  } else {
+    h += `<div style="overflow-x:auto;"><table><thead><tr><th>Classification</th><th>Application / CI</th><th>Domain</th><th>Env</th><th>From</th><th>To</th><th>What is Changing</th></tr></thead><tbody>
+    ${r.components.map(c=>`<tr>
+      <td><span style="font-family:'IBM Plex Mono';font-size:8px;padding:2px 6px;background:var(--bg4);border:1px solid var(--border2);border-radius:2px;color:var(--text2);">${c.classification||c.type||'—'}</span></td>
+      <td class="td-name">${c.name}</td>
+      <td>${dBadge(c.domain)}</td>
+      <td style="font-family:'IBM Plex Mono';font-size:9px;color:${(c.env||'').includes('OT')?'var(--warn)':'var(--text2)'};">${c.env||'—'}</td>
+      <td class="td-mono" style="color:var(--text3);">${c.fromVer||'—'}</td>
+      <td class="td-mono" style="color:var(--accent);">${c.toVer||'—'}</td>
+      <td style="font-size:11px;color:var(--text2);">${c.changeDesc||c.notes||'—'}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+  }
+
+  // ── SEC 3: OUTAGE & IMPACT ────────────────────────────────
+  h += secHdr('⚡','Outage & Service Impact');
+  const hasOutage = r.outageRequired==='yes';
+  h += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:10px;">
+    ${kv('Outage Required',hasOutage?'<span style="color:var(--danger);font-weight:600;">⚠ YES — Planned Outage</span>':'<span style="color:var(--success);">✓ No Outage</span>')}
+    ${kv('Impact Classification',r.impactType||'—')}
+    ${kv('Users Affected',r.usersAffected||'—')}
+    ${hasOutage?kv('Planned Outage Start',r.outageStart?fmtDT(r.outageStart):'—'):''}
+    ${hasOutage?kv('Planned Outage End',r.outageEnd?fmtDT(r.outageEnd):'—'):''}
+    ${hasOutage?kv('Est. Outage Duration',r.outageDuration||'—'):''}
+    ${hasOutage&&r.systemsAffected?kv('Systems / Services Down',r.systemsAffected):''}
+    ${hasOutage?kv('Customer Notification',r.customerNotifRequired==='yes'?'✓ Yes — Required':'No'):''}
+    ${hasOutage&&r.customerNotifRequired==='yes'?kv('Notification Lead Time',r.notifLeadTime||'—'):''}
+  </div>`;
+
+  // Downstream impact warning
+  const impacts = getImpacts(r.components||[]);
+  if(impacts.direct.length||impacts.indirect.length) {
+    h += `<div style="padding:8px 12px;background:var(--danger-dim);border:1px solid rgba(239,68,68,0.2);border-radius:2px;margin-bottom:8px;font-size:12px;color:var(--danger);">⚠ ${impacts.direct.length} direct + ${impacts.indirect.length} indirect downstream dependencies will be affected by this release</div>`;
+  }
+
+  // ── SEC 4: DEPLOYMENT WINDOW & DEPENDENCIES ───────────────
+  if((r.dependsOn||[]).length) {
+    h += secHdr('🔗','Release Dependencies','This release cannot begin until all dependencies are Deployed');
+    h += r.dependsOn.map(depId=>{
+      const dep = RELS.find(x=>x.id===depId);
+      if(!dep) return '';
+      const ready = ['deployed','closed'].includes(dep.status);
+      return `<div style="display:flex;align-items:center;gap:9px;padding:9px 12px;background:${ready?'var(--success-dim)':'var(--warn-dim)'};border:1px solid ${ready?'rgba(34,197,94,0.2)':'rgba(245,158,11,0.2)'};border-radius:2px;margin-bottom:5px;cursor:pointer;" onclick="openRelease('${dep.id}')">
+        <span style="font-size:16px;">${ready?'✅':'⏳'}</span>
+        <div><div style="font-size:12px;font-weight:500;color:var(--text1);">${dep.relNum} — ${dep.title}</div>
+        <div style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);">${STATUS_META[dep.status]?.l||dep.status} ${ready?'✓ Dependency met':'⚠ Must be deployed before this release can begin'}</div></div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── SEC 5: IMPLEMENTATION PLAN ────────────────────────────
+  h += secHdr('📝','Implementation Plan');
+  h += `<div style="margin-bottom:10px;">
+    <div style="font-family:'IBM Plex Mono';font-size:8px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:5px;">High Level Implementation Plan</div>
+    <div style="background:var(--bg3);border:1px solid var(--border);padding:11px;border-radius:2px;font-size:12px;color:var(--text2);white-space:pre-line;line-height:1.7;min-height:60px;">${r.implPlan||'<span style="color:var(--danger);">NOT PROVIDED — Required before submission</span>'}</div>
+  </div>
+  <div style="margin-bottom:10px;">
+    <div style="font-family:'IBM Plex Mono';font-size:8px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:5px;">Rollback Plan <span style="color:var(--text3);">(Est. ${r.rollbackTimeEst||'—'})</span></div>
+    <div style="background:var(--bg3);border:1px solid var(--border);padding:11px;border-radius:2px;font-size:12px;color:var(--text2);white-space:pre-line;line-height:1.7;min-height:40px;">${r.rollbackPlan||'<span style="color:var(--danger);">NOT PROVIDED — Required before submission</span>'}</div>
+  </div>
+  ${r.testEvidence
+    ?`<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--success-dim);border:1px solid rgba(34,197,94,0.2);border-radius:2px;margin-bottom:8px;"><span>📎</span><span style="font-size:12px;color:var(--text1);">${r.testEvidence}</span><span style="font-family:'IBM Plex Mono';font-size:9px;color:var(--success);margin-left:auto;">✓ Test Evidence Attached</span></div>`
+    :'<div style="font-family:\'IBM Plex Mono\';font-size:9px;color:var(--warn);padding:5px 0;">⚠ No test evidence attached — required before OIRB</div>'}
+  ${r.desc?`<div style="padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:2px;font-size:12px;color:var(--text2);line-height:1.6;">${r.desc}</div>`:''}`;
+
+  // ── SEC 6: IMPACT ANALYSIS (post-draft) ───────────────────
+  if(!['draft'].includes(r.status)) {
+    h += secHdr('🗺️','Impact Analysis',`<span style="cursor:pointer;color:var(--accent);" onclick="showImpactInfo()">ℹ How is this calculated?</span>`);
+    h += `<div class="g2" style="margin-bottom:10px;">
+      <div>
+        <div style="font-family:'IBM Plex Mono';font-size:8px;text-transform:uppercase;letter-spacing:1px;color:var(--danger);margin-bottom:5px;">Direct Impacts (${impacts.direct.length})</div>
+        ${impacts.direct.length?impacts.direct.map(i=>`<div style="display:flex;gap:7px;padding:6px 0;border-bottom:1px solid var(--border);"><div class="sdot" style="background:var(--danger);flex-shrink:0;margin-top:4px;"></div><div><div style="font-size:12px;font-weight:500;color:var(--text1);">${i.a}</div><div style="font-size:10px;color:var(--text3);">${i.r}</div></div></div>`).join('')
+        :'<div style="font-size:11px;color:var(--text3);padding:6px 0;">None detected</div>'}
+      </div>
+      <div>
+        <div style="font-family:'IBM Plex Mono';font-size:8px;text-transform:uppercase;letter-spacing:1px;color:var(--warn);margin-bottom:5px;">Indirect + Advisory (${impacts.indirect.length+impacts.advisory.length})</div>
+        ${[...impacts.indirect,...impacts.advisory].length?[...impacts.indirect,...impacts.advisory].map(i=>`<div style="display:flex;gap:7px;padding:5px 0;border-bottom:1px solid var(--border);"><div class="sdot" style="background:var(--warn);flex-shrink:0;margin-top:4px;"></div><div><div style="font-size:11px;font-weight:500;color:var(--text1);">${i.a}</div></div></div>`).join('')
+        :'<div style="font-size:11px;color:var(--text3);padding:5px 0;">None</div>'}
+      </div>
+    </div>`;
+  }
+
+  // ── SEC 7: RISK & COMPLIANCE (post-draft) ─────────────────
+  if(!['draft'].includes(r.status) && r.risk) {
+    h += secHdr('🎯','Risk & Compliance',`<span style="cursor:pointer;color:var(--accent);" onclick="showRiskInfo()">ℹ How is risk calculated?</span>`);
+    h += `<div class="g2" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:14px;padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:2px;">
+        <div style="position:relative;width:80px;height:80px;flex-shrink:0;">
+          <svg width="80" height="80" viewBox="0 0 80 80">
+            <circle cx="40" cy="40" r="30" fill="none" stroke="var(--border)" stroke-width="8"/>
+            <circle cx="40" cy="40" r="30" fill="none" stroke="${riskC(r.risk)}" stroke-width="8" stroke-linecap="round"
+              stroke-dasharray="188" stroke-dashoffset="${188-(188*r.risk/100)}" transform="rotate(-90 40 40)"/>
+          </svg>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-55%);font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:${riskC(r.risk)};">${r.risk}</div>
+        </div>
+        <div>
+          <div style="font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:${riskC(r.risk)};">${r.rl} RISK</div>
+          <div style="font-size:11px;color:${r.oirbRequired?'var(--warn)':'var(--success)'};">${r.oirbRequired?'⚠ OIRB Review Required':'✓ Direct Approval'}</div>
+          ${r.riskSignoff?`<div style="font-size:10px;color:var(--success);margin-top:4px;">✓ Risk accepted — ${r.riskSignoff.by}</div>`:''}
+        </div>
+      </div>
+      <div style="padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:2px;">
+        <div style="font-family:'IBM Plex Mono';font-size:8px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:7px;">Compliance Flags</div>
+        <div style="margin-bottom:8px;">${(r.compliance||[]).map(cTag).join('')||'<span style="font-size:11px;color:var(--text3);">None</span>'}</div>
+        ${(r.compliance||[]).includes('NERC CIP')?`<div style="font-family:'IBM Plex Mono';font-size:8px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:1px;">NERC CIP Evidence Required</div>
+          ${['Change authorization (CIP-010 R1)','Vulnerability assessment (CIP-010 R1.1)','Test results attached (CIP-010 R3)','Access controls reviewed (CIP-005 R1)','Cyber security review (CIP-007 R2)'].map(e=>`<div style="font-size:10px;color:var(--text2);padding:3px 0;border-bottom:1px solid var(--border);">□ ${e}</div>`).join('')}`:''}
+      </div>
+    </div>`;
+  }
+
+  // ── SEC 8: OIRB REVIEW ────────────────────────────────────
+  if(r.status==='oirb_review') {
+    h += secHdr('👥','OIRB Review');
+    if(r.oirbMeeting?.scheduledAt) {
+      h += `<div style="padding:10px 14px;background:var(--success-dim);border:1px solid rgba(34,197,94,0.3);border-radius:3px;margin-bottom:10px;">
+        <div style="font-family:'IBM Plex Mono';font-size:8px;text-transform:uppercase;letter-spacing:1px;color:var(--success);margin-bottom:4px;">✓ OIRB SLOT CONFIRMED</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text1);">${new Date(r.oirbMeeting.scheduledAt).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div>
+        <div style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);">${String(OIRB_HOUR).padStart(2,'0')}:${String(OIRB_MIN).padStart(2,'0')} UTC · ${r.oirbMeeting.location}</div>
+        <div style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);margin-top:4px;">IT CAB: ${(r.oirbMeeting.itCab||'not_required').replace(/_/g,' ')}</div>
+      </div>`;
+    } else {
+      h += `<div style="padding:10px 14px;background:var(--warn-dim);border:1px solid rgba(245,158,11,0.3);border-radius:3px;margin-bottom:10px;">
+        <div style="font-family:'IBM Plex Mono';font-size:8px;text-transform:uppercase;letter-spacing:1px;color:var(--warn);margin-bottom:3px;">⚠ NO OIRB SLOT SELECTED</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Pick a meeting slot to add this release to the OIRB agenda.</div>
+        <button class="btn btn-accent btn-sm" onclick="openOIRBSlotPicker('${r.id}')">📅 Pick Meeting Slot →</button>
+      </div>`;
+    }
+    h += `<div style="font-family:'IBM Plex Mono';font-size:8px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:5px;">Board Attendees</div>
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">${OIRB_MEMBERS.map(m=>`<span style="padding:3px 9px;border:1px solid var(--border);border-radius:20px;font-size:10px;color:var(--text2);">👤 ${m.name}</span>`).join('')}</div>
+    <button class="btn btn-outline btn-sm" onclick="nav('oirb',null);closeMod('mod-rel')">Go to OIRB Board →</button>`;
+  }
+
+  if(r.oirbDecision) {
+    const oc = r.oirbDecision;
+    const isApp = oc.decision==='approved';
+    h += secHdr('🔨','OIRB Decision');
+    h += `<div style="padding:10px 14px;background:${isApp?'var(--success-dim)':'var(--danger-dim)'};border:1px solid ${isApp?'rgba(34,197,94,0.3)':'rgba(239,68,68,0.3)'};border-radius:3px;margin-bottom:8px;">
+      <div style="font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:${isApp?'var(--success)':'var(--danger)'};">${isApp?'✅ APPROVED':'✗ REJECTED'} — ${fmtDT(oc.at)}</div>
+      <div style="font-size:11px;color:var(--text3);">By: ${oc.by} · IT CAB: ${(oc.itCab||'—').replace(/_/g,' ')}</div>
+      ${(oc.conditions||[]).length?`<div style="margin-top:8px;">${oc.conditions.map((c,i)=>`<div style="font-size:11px;color:var(--text2);padding:3px 0;border-bottom:1px solid ${isApp?'rgba(34,197,94,0.15)':'rgba(239,68,68,0.15)'};">${i+1}. ${c}</div>`).join('')}</div>`:''}
+    </div>`;
+  }
+
+  // ── SEC 9: READINESS CHECKLIST ────────────────────────────
+  if(['approved','scheduled','deploying','deployed','closed'].includes(r.status)) {
+    const cl = r.readinessChecklist||[];
+    const done = cl.filter(i=>i.checked||i.na).length;
+    h += `<div id="sec-readiness-${r.id}">`;
+    h += secHdr('✅',`Pre-Release Readiness (${done}/${cl.length})`,'Must be fully complete before deployment begins');
+    if(done<cl.length && ['approved','scheduled'].includes(r.status)) {
+      h += `<div style="padding:8px 12px;background:var(--warn-dim);border:1px solid rgba(245,158,11,0.3);border-radius:2px;margin-bottom:8px;font-size:12px;color:var(--warn);">⚠ ${cl.length-done} items remaining — deployment is blocked until all checked</div>`;
+    }
+    // Group by category
+    const cats = {base:'Standard',ot:'OT / SCADA',db:'Database',net:'Network',cert:'Certificate',signoff:'Sign-Off'};
+    const grouped = {};
+    cl.forEach(item=>{ const cat = item.cat||'base'; if(!grouped[cat]) grouped[cat]=[]; grouped[cat].push(item); });
+    Object.entries(grouped).forEach(([cat,items])=>{
+      if(items.length&&cat!=='base') h += `<div style="font-family:'IBM Plex Mono';font-size:8px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin:8px 0 4px;">${cats[cat]||cat}</div>`;
+      items.forEach(item=>{
+        const idx = cl.indexOf(item);
+        h += `<div class="checklist-item ${item.checked?'checked':item.na?'na':''}" onclick="toggleReadiness('${r.id}',${idx})" style="${item.na?'opacity:0.5;':''}">
+          <div class="checklist-cb">${item.checked?'✓':item.na?'—':''}</div>
+          <div style="flex:1;"><div style="font-size:12px;color:${item.checked?'var(--success)':item.na?'var(--text3)':'var(--text2)'};">${item.item}</div>
+          ${item.checked&&item.by?`<div style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);">✓ ${item.by} — ${fmtD(item.at)}</div>`:''}
+          </div>
+          ${r.status==='approved'||r.status==='scheduled'?`<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();markNa('${r.id}',${idx})" style="font-size:8px;padding:2px 6px;">${item.na?'Undo N/A':'N/A'}</button>`:''}
+        </div>`;
+      });
+    });
+    if(done===cl.length && r.status==='scheduled') {
+      h += `<div style="padding:10px 14px;margin-top:8px;background:var(--success-dim);border:1px solid rgba(34,197,94,0.3);border-radius:2px;display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;color:var(--success);">✓ All checks complete — ready to deploy</span>
+        <button class="btn btn-accent" onclick="beginDeployment('${r.id}')">🚀 Begin Deployment →</button>
+      </div>`;
+    }
+    // Stakeholder notifications
+    if((r.stakeholderNotifications||[]).length) {
+      h += `<div style="margin-top:12px;"><div style="font-family:'IBM Plex Mono';font-size:8px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:6px;">Stakeholder Notifications</div>
+      ${r.stakeholderNotifications.map(n=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--border);">
+        <span>${n.type==='Ops Team'?'🔧':n.type==='Leadership'?'👔':'🎧'}</span>
+        <span style="font-size:12px;color:var(--text1);flex:1;">${n.type}</span>
+        ${n.na?`<span style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);">N/A</span>`:n.sent?`<span style="font-family:'IBM Plex Mono';font-size:9px;color:var(--success);">✓ Sent — ${fmtDT(n.sentAt)}</span>`:`<button class="btn btn-outline btn-sm" onclick="markNotifSent('${r.id}','${n.type}')">Mark Sent</button>`}
+      </div>`).join('')}
+      <div style="padding:7px 12px;"><button class="btn btn-outline btn-sm" onclick="openCommsTemplates('${r.id}')">📧 Comms Templates</button></div></div>`;
+    }
+    h += `</div>`;
+  }
+
+  // ── SEC 10: DEPLOYMENT LOG ────────────────────────────────
+  if(['deploying','deployed','closed','rolled_back'].includes(r.status)) {
+    h += `<div id="sec-deploy-${r.id}">`;
+    h += secHdr('🚀','Deployment Log');
+    h += `<div style="display:flex;gap:14px;font-size:11px;color:var(--text3);margin-bottom:10px;flex-wrap:wrap;">
+      <span>Started: <strong style="color:var(--text1);">${r.actualStart?fmtDT(r.actualStart):'—'}</strong></span>
+      ${r.actualEnd?`<span>Completed: <strong style="color:var(--success);">${fmtDT(r.actualEnd)}</strong></span>`:'<span style="color:var(--warn);animation:powerpulse 1.5s infinite;">⏳ In progress…</span>'}
+    </div>
+    <div style="overflow-x:auto;"><table><thead><tr><th>Classification</th><th>Component</th><th>To Version</th><th>Deployed By</th><th>Time</th><th>Status</th>${r.status==='deploying'?'<th>Action</th>':''}</tr></thead><tbody>
+    ${(r.components||[]).map(c=>{
+      const sc={'deployed':'var(--success)','in_progress':'var(--warn)','failed':'var(--danger)','pending':'var(--text3)','skipped':'var(--text3)','rolled_back':'var(--danger)'}[c.deployStatus||'pending'];
+      return `<tr>
+        <td><span style="font-family:'IBM Plex Mono';font-size:8px;padding:1px 5px;background:var(--bg4);border:1px solid var(--border2);color:var(--text3);">${c.classification||c.type||'—'}</span></td>
+        <td class="td-name">${c.name}</td>
+        <td class="td-mono" style="color:var(--accent);">${c.toVer||'—'}</td>
+        <td style="font-size:11px;">${c.deployedBy||'—'}</td>
+        <td class="td-mono" style="color:var(--text3);">${c.deployedAt?fmtDT(c.deployedAt):'—'}</td>
+        <td><span style="font-family:'IBM Plex Mono';font-size:9px;padding:2px 6px;background:${sc}22;color:${sc};border-radius:2px;">${c.deployStatus||'pending'}</span></td>
+        ${r.status==='deploying'?`<td><button class="btn btn-outline btn-sm" onclick="openDepUpdate('${r.id}','${c.id}')">Update</button></td>`:''}
+      </tr>`;
+    }).join('')}</tbody></table></div>`;
+    if(r.status==='deploying') {
+      const allDone=(r.components||[]).every(c=>['deployed','skipped'].includes(c.deployStatus));
+      h += `<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+        ${allDone?`<button class="btn btn-success" onclick="markFullyDeployed('${r.id}')">✓ Mark as Fully Deployed</button>`:'<button class="btn btn-outline" disabled>Update all components first</button>'}
+        <button class="btn btn-danger" onclick="openRollback('${r.id}')">↩ Trigger Rollback</button>
+      </div>`;
+    }
+    if(r.status==='rolled_back') {
+      h += `<div style="padding:10px 14px;background:var(--danger-dim);border:1px solid rgba(239,68,68,0.3);border-radius:2px;margin-top:8px;">
+        <div style="font-family:'IBM Plex Mono';font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--danger);margin-bottom:4px;">ROLLBACK EXECUTED</div>
+        <div style="font-size:12px;color:var(--text2);">${r.rollbackReason||'—'}</div>
+        <div style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);margin-top:4px;">By: ${r.rollbackBy||'—'} — ${fmtDT(r.rollbackAt)}</div>
+      </div>`;
+    }
+    h += `</div>`;
+  }
+
+  // ── SEC 11-13: POST-DEPLOY (when Deployed) ────────────────
+  if(['deployed','closed'].includes(r.status)) {
+    h += `<div id="sec-postdeploy-${r.id}">`;
+    const vcl = r.verificationChecklist||[];
+    const vdone = vcl.filter(i=>i.checked||i.na).length;
+    h += secHdr('🔍',`Post-Deployment Verification (${vdone}/${vcl.length})`,'IT and Business sign-off required before closing');
+
+    const vcats = {base:'Standard',ot:'OT / SCADA',db:'Database',signoff:'Sign-Off'};
+    const vgrouped = {};
+    vcl.forEach(item=>{ const cat=item.cat||'base'; if(!vgrouped[cat]) vgrouped[cat]=[]; vgrouped[cat].push(item); });
+    Object.entries(vgrouped).forEach(([cat,items])=>{
+      if(items.length&&cat!=='base') h += `<div style="font-family:'IBM Plex Mono';font-size:8px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin:8px 0 4px;">${vcats[cat]||cat}</div>`;
+      items.forEach(item=>{
+        const idx = vcl.indexOf(item);
+        h += `<div class="checklist-item ${item.checked?'checked':''}" onclick="${r.status==='deployed'?`toggleVerification('${r.id}',${idx})`:''}">
+          <div class="checklist-cb">${item.checked?'✓':''}</div>
+          <div style="flex:1;"><div style="font-size:12px;color:${item.checked?'var(--success)':'var(--text2)'};">${item.item}</div>
+          ${item.checked&&item.by?`<div style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);">✓ ${item.by} — ${fmtD(item.at)}</div>`:''}</div>
+        </div>`;
+      });
+    });
+
+    // Incident capture
+    h += secHdr('⚡','Incident & Outage Report','Captured during post-deployment review');
+    if(r.status==='closed') {
+      h += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:10px;">
+        ${kv('Incidents Triggered',r.incidents||'—')}
+        ${kv('Downtime Duration',r.downtime||'—')}
+        ${kv('Stability Score',r.stabilityScore!=null?r.stabilityScore+'%':'—')}
+        ${r.actualOutageDuration?kv('Actual Outage Duration',r.actualOutageDuration):''}
+        ${r.actualUsersAffected?kv('Users Actually Affected',r.actualUsersAffected):''}
+      </div>`;
+    } else {
+      h += `<button class="btn btn-accent" onclick="openPostDeploy('${r.id}')">Complete Post-Deploy Review & Close Release →</button>`;
+    }
+
+    // Lessons learned (deployed or closed)
+    if(r.lessonsLearned) {
+      h += secHdr('📚','Lessons Learned');
+      h += [['✅ What went well',r.lessonsLearned.wentWell,'var(--success-dim)','rgba(34,197,94,0.25)'],
+             ['⚠ What to improve',r.lessonsLearned.improve,'var(--warn-dim)','rgba(245,158,11,0.25)'],
+             ['💡 Recommendations',r.lessonsLearned.recommendations,'var(--info-dim)','rgba(56,189,248,0.25)']].filter(([,v])=>v).map(([t,v,bg,bc])=>
+              `<div style="padding:9px 12px;background:${bg};border:1px solid ${bc};border-radius:2px;margin-bottom:6px;"><div style="font-size:10px;font-weight:600;margin-bottom:3px;">${t}</div><div style="font-size:12px;color:var(--text2);line-height:1.5;">${v}</div></div>`).join('');
+      h += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">${(r.lessonsLearned.tags||[]).map(t=>`<span style="font-family:'IBM Plex Mono';font-size:9px;padding:2px 7px;border:1px solid var(--border2);border-radius:20px;color:var(--text2);">${t}</span>`).join('')}</div>`;
+    }
+
+    h += `</div>`;
+  }
+
+  // ── SEC 14: CLOSURE SUMMARY ───────────────────────────────
+  if(r.status==='closed') {
+    const sc=r.stabilityScore||0;
+    h += secHdr('🏆','Closure Summary');
+    h += `<div class="g3" style="margin-bottom:10px;">
+      ${[['Stability Score',sc+'%',sc>=90?'var(--success)':sc>=70?'var(--warn)':'var(--danger)'],
+         ['Incidents',r.incidents||'None',(!r.incidents||r.incidents==='none')?'var(--success)':'var(--danger)'],
+         ['Downtime',r.downtime||'None',(!r.downtime||r.downtime==='none')?'var(--success)':'var(--danger)'],
+         ['First Time Right',sc>=80?'Yes':'No',sc>=80?'var(--success)':'var(--danger)'],
+         ['Actual Outage',r.actualOutageDuration||'None',!r.actualOutageDuration?'var(--success)':'var(--warn)'],
+         ['Users Affected',r.actualUsersAffected||'None',!r.actualUsersAffected?'var(--success)':'var(--warn)']].map(([k,v,c])=>`<div style="text-align:center;padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:2px;"><div style="font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:${c};">${v}</div><div style="font-family:'IBM Plex Mono';font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-top:3px;">${k}</div></div>`).join('')}
+    </div>`;
+  }
+
+  // ── SEC 15: AUDIT TRAIL ───────────────────────────────────
+  h += secHdr('📝','Audit Trail','Immutable — every action logged');
+  h += `<div style="max-height:200px;overflow-y:auto;background:var(--bg3);border:1px solid var(--border);border-radius:2px;">
+    ${(r.auditLog||[]).map(a=>`<div style="display:flex;align-items:flex-start;gap:9px;padding:7px 12px;border-bottom:1px solid var(--border);">
+      <div class="sdot" style="background:var(--accent);flex-shrink:0;margin-top:4px;"></div>
+      <div style="flex:1;"><div style="font-size:11px;font-weight:500;color:var(--text1);">${a.action}</div>
+      <div style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);">${a.by||a.actor||'System'} — ${fmtDT(a.at||a.ts)}</div>
+      ${a.detail?`<div style="font-size:10px;color:var(--text3);">${a.detail}</div>`:''}</div>
+    </div>`).join('')||`<div style="padding:14px;color:var(--text3);font-size:11px;">No entries</div>`}
+  </div>`;
+
+  return h;
+}
+
+// ── markNa helper ─────────────────────────────────────────────
+function markNa(rId, idx) {
+  RELS = RELS.map(r=>{ if(r.id!==rId) return r;
+    const cl=[...(r.readinessChecklist||[])];
+    cl[idx]={...cl[idx],na:!cl[idx].na,checked:false,by:null,at:null};
+    return {...r,readinessChecklist:cl};
+  });
+  openRelease(rId);
+}
+
+// ── CALENDAR — Day / Week / Month + Freeze Creator ────────────
+
+function setCalView(v) {
+  calView=v;
+  ['day','week','month'].forEach(x=>{ const b=$('cal-btn-'+x); if(b) b.classList.toggle('active',x===v); });
+  $('cal-day-view')&&($('cal-day-view').style.display=v==='day'?'flex':'none');
+  $('cal-month-view')&&($('cal-month-view').style.display=v==='month'?'flex':'none');
+  $('cal-week-view')&&($('cal-week-view').style.display=v==='week'?'flex':'none');
+  renderCalendar();
+}
+function calNav(dir) {
+  if(calView==='day') calDate.setDate(calDate.getDate()+dir);
+  else if(calView==='week') calDate.setDate(calDate.getDate()+dir*7);
+  else calDate.setMonth(calDate.getMonth()+dir);
+  renderCalendar();
+}
+function calGoToday(){ calDate=new Date(); renderCalendar(); }
+
+function getCalRels() {
+  const fd=($('cal-fd')||{value:''}).value;
+  const fs=($('cal-fs')||{value:''}).value;
+  const fr=($('cal-fr')||{value:''}).value;
+  return RELS.filter(r=>{ if(fd&&r.domain!==fd) return false; if(fs&&r.status!==fs) return false; if(fr&&r.rl!==fr) return false; return r.plannedStart; });
+}
+
+function renderCalendar() {
+  const filtered=getCalRels();
+  const lbl=$('cal-period-label');
+  if(calView==='day') {
+    if(lbl) lbl.textContent=calDate.toLocaleDateString('en-US',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    renderCalDay(filtered);
+  } else if(calView==='week') {
+    const ws=calWeekStart(calDate),we=new Date(ws); we.setDate(we.getDate()+6);
+    if(lbl) lbl.textContent=ws.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' — '+we.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    renderCalWeek(filtered);
+  } else {
+    if(lbl) lbl.textContent=calDate.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+    renderCalMonth(filtered);
+  }
+  sv('cal-count-label', filtered.length+' releases');
+}
+
+
+function renderCalDay(rels) {
+  const key=calDateKey(calDate);
+  const dayRels=rels.filter(r=>calDateKey(r.plannedStart)===key);
+  const isFreeze=isFreezeDay(calDate);
+  const fwInfo=FREEZE_WINDOWS.find(fw=>fw.active&&key>=fw.start&&key<=fw.end);
+  const el=$('cal-day-view'); if(!el) return;
+  el.innerHTML=`<div style="padding:14px;background:${isFreeze?'rgba(245,158,11,0.05)':'var(--bg2)'};border:1px solid var(--border);border-radius:2px;min-height:300px;">
+    ${isFreeze?`<div style="padding:8px 12px;background:var(--warn-dim);border:1px solid rgba(245,158,11,0.3);border-left:3px solid var(--warn);border-radius:2px;margin-bottom:12px;font-size:12px;color:var(--warn);">❄ Freeze Window${fwInfo?`: ${fwInfo.name} — ${fwInfo.reason}`:' — Saturday standard freeze'}</div>`:''}
+    ${dayRels.length?dayRels.map(r=>`<div onclick="openRelease('${r.id}')" style="padding:12px 14px;background:var(--bg3);border:1px solid ${DM[r.domain]?.c||'var(--border)'};border-left:3px solid ${DM[r.domain]?.c||'var(--border)'};border-radius:2px;margin-bottom:8px;cursor:pointer;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">${dBadge(r.domain)} ${sBadge(r.status)} ${r.rl?rBadge(r.rl):''}</div>
+      <div style="font-size:14px;font-weight:600;color:var(--text1);">${r.title}</div>
+      <div style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);margin-top:4px;">${r.relNum} · ${r.chg||'No CHG'} · ${r.plannedStartTime||'—'} – ${r.plannedEndTime||'—'} UTC · Owner: ${r.owner||'—'}</div>
+      ${r.outageRequired==='yes'?`<div style="font-family:'IBM Plex Mono';font-size:9px;color:var(--danger);margin-top:3px;">⚠ Planned outage — ${r.impactType||'—'} · Users: ${r.usersAffected||'—'}</div>`:''}
+    </div>`).join(''):`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:200px;color:var(--text3);">
+      <div style="font-size:32px;margin-bottom:10px;">📅</div>
+      <div style="font-family:'IBM Plex Mono';font-size:11px;">No releases scheduled for this day</div>
+      <button class="btn btn-accent btn-sm" style="margin-top:12px;" onclick="openNewRelease()">+ Schedule Release</button>
+    </div>`}
+    <div style="margin-top:14px;display:flex;gap:8px;">
+      <button class="btn btn-outline btn-sm" onclick="openFreezeManagerOnDate('${key}')">❄ ${isFreeze?'Manage':'Add'} Freeze Window</button>
+    </div>
+  </div>`;
+}
+
+function renderCalMonth(releases) {
+  const year=calDate.getFullYear(),month=calDate.getMonth();
+  const firstDay=new Date(year,month,1); const start=new Date(firstDay); start.setDate(start.getDate()-start.getDay());
+  const byDay={};
+  releases.forEach(r=>{ const k=calDateKey(r.plannedStart); if(!byDay[k]) byDay[k]=[]; byDay[k].push(r); });
+  const cells=[]; const cur=new Date(start);
+  for(let i=0;i<42;i++){ cells.push(new Date(cur)); cur.setDate(cur.getDate()+1); }
+  const mb=$('cal-month-body'); if(!mb) return;
+  mb.innerHTML=cells.map(day=>{
+    const k=calDateKey(day),dayRels=byDay[k]||[],om=day.getMonth()!==month,td=isToday(day),fd=isFreezeDay(day);
+    const shown=dayRels.slice(0,3),overflow=dayRels.length-3;
+    const fwInfo=FREEZE_WINDOWS.find(fw=>fw.active&&k>=fw.start&&k<=fw.end);
+    return `<div class="cal-day${om?' other-month':''}${td?' today':''}${fd?' freeze-day':''}" onclick="showCalPopup(event,'${k}')" ondblclick="openFreezeManagerOnDate('${k}')">
+      ${dayRels.length>3?'<div style="position:absolute;top:2px;right:2px;font-family:\'IBM Plex Mono\';font-size:8px;color:var(--warn);">⚠</div>':''}
+      ${fd&&fwInfo?`<div style="font-family:'IBM Plex Mono';font-size:6px;color:var(--warn);text-align:center;padding:1px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">❄ ${fwInfo.name}</div>`:''}
+      <div class="cal-day-num">${day.getDate()}</div>
+      ${shown.map(r=>{ const c=DM[r.domain]?.c||'#888'; return `<div class="cal-rel-pill" style="background:${c}18;" onclick="event.stopPropagation();openRelease('${r.id}')"><div class="cal-rel-dot" style="background:${c};"></div><span class="cal-rel-text" style="color:${c};">${r.relNum}</span></div>`; }).join('')}
+      ${overflow>0?`<div class="cal-more">+${overflow}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function renderCalWeek(releases) {
+  const ws=calWeekStart(calDate); const days=Array.from({length:7},(_,i)=>{ const d=new Date(ws); d.setDate(d.getDate()+i); return d; });
+  const DOWS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const wh=$('cal-week-header'); if(wh) wh.innerHTML='<div style="width:130px;flex-shrink:0;border-right:1px solid var(--border);background:var(--bg3);"></div>'+days.map(d=>`<div class="cal-week-day-hdr"${isFreezeDay(d)?' style="background:rgba(245,158,11,0.05);"':''}><div class="cal-week-day-hdr-name">${DOWS[d.getDay()]}</div><div class="cal-week-day-hdr-num${isToday(d)?' today':''}">${d.getDate()}</div>${isFreezeDay(d)?'<div style="font-family:\'IBM Plex Mono\';font-size:7px;color:var(--warn);">❄</div>':''}</div>`).join('');
+  const wb=$('cal-week-body'); if(!wb) return;
+  wb.innerHTML=['gen','tx','dx','bill','cx'].map(dk=>{
+    const dm=DM[dk];
+    const cells=days.map(d=>{ const k=calDateKey(d); const dayRels=releases.filter(r=>r.domain===dk&&calDateKey(r.plannedStart)===k);
+      return `<div class="cal-week-cell${isToday(d)?' today-col':''}${isFreezeDay(d)?' freeze-col':''}">${dayRels.map(r=>`<div class="cal-week-rel-card" style="background:${dm.c}18;border-left-color:${dm.c};" onclick="openRelease('${r.id}')"><div class="cal-week-rel-title">${r.title}</div><div class="cal-week-rel-meta">${r.relNum} · ${r.plannedStartTime||'—'} UTC</div></div>`).join('')}</div>`; }).join('');
+    return `<div style="display:flex;border-bottom:1px solid var(--border);"><div class="cal-week-lane-label"><span>${dm.i}</span><span class="cal-week-lane-name" style="color:${dm.c};">${dm.l}</span></div><div style="display:flex;flex:1;">${cells}</div></div>`;
+  }).join('');
+}
+
+// ── Freeze window creator ─────────────────────────────────────
+function openFreezeManagerOnDate(dateKey) {
+  const existing=FREEZE_WINDOWS.find(fw=>dateKey>=fw.start&&dateKey<=fw.end);
+  const d=new Date(dateKey);
+  const dateLabel=d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+  const content=`<div style="padding:14px;">
+    <div style="font-family:'IBM Plex Mono';font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--text3);margin-bottom:10px;">Manage Freeze Window — ${dateLabel}</div>
+    ${existing?`<div style="padding:10px;background:var(--warn-dim);border:1px solid rgba(245,158,11,0.3);border-radius:2px;margin-bottom:12px;">
+      <div style="font-size:13px;font-weight:600;color:var(--warn);">❄ ${existing.name}</div>
+      <div style="font-size:11px;color:var(--text2);">${existing.start} → ${existing.end}</div>
+      <div style="font-size:11px;color:var(--text2);">${existing.reason}</div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="btn btn-danger btn-sm" onclick="removeFreezeWindow('${existing.id}');this.closest('.freeze-manager').remove();">Remove Freeze Window</button>
+        <button class="btn btn-outline btn-sm" onclick="toggleFreezeActive('${existing.id}',${!existing.active});this.closest('.freeze-manager').remove();">${existing.active?'Disable':'Enable'}</button>
+      </div>
+    </div>`:''}
+    <div style="font-family:'IBM Plex Mono';font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:8px;">Add New Freeze Window</div>
+    <div class="fg" style="margin-bottom:8px;"><div class="fl">Name</div><input class="fi" id="fw-name" placeholder="e.g. Peak Summer Demand Freeze" value=""></div>
+    <div class="fr2" style="margin-bottom:8px;">
+      <div class="fg"><div class="fl">Start Date</div><input class="fi" type="date" id="fw-start" value="${dateKey}"></div>
+      <div class="fg"><div class="fl">End Date</div><input class="fi" type="date" id="fw-end" value="${dateKey}"></div>
+    </div>
+    <div class="fg" style="margin-bottom:8px;"><div class="fl">Type</div><select class="fs" id="fw-type"><option value="standard">Standard</option><option value="seasonal">Seasonal</option><option value="annual">Annual</option><option value="advisory">Advisory</option></select></div>
+    <div class="fg" style="margin-bottom:12px;"><div class="fl">Reason</div><input class="fi" id="fw-reason" placeholder="Why is this a freeze window?"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-accent btn-sm" onclick="saveFreezeWindow(this)">Save Freeze Window</button>
+      <button class="btn btn-outline btn-sm" onclick="this.closest('.freeze-manager').remove()">Cancel</button>
+    </div>
+  </div>`;
+
+  const m=document.createElement('div');
+  m.className='freeze-manager';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:150;display:flex;align-items:center;justify-content:center;';
+  m.innerHTML=`<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:3px;width:480px;max-height:80vh;overflow-y:auto;">${content}</div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click',e=>{ if(e.target===m) m.remove(); });
+}
+
+function saveFreezeWindow(btn) {
+  const name=$('fw-name')?.value.trim(); if(!name){toast('Name required','error');return;}
+  const start=$('fw-start')?.value; if(!start){toast('Start date required','error');return;}
+  const end=$('fw-end')?.value; if(!end){toast('End date required','error');return;}
+  const reason=$('fw-reason')?.value||'';
+  const type=$('fw-type')?.value||'standard';
+  FREEZE_WINDOWS.push({id:gidN(),name,start,end,reason,type,active:true});
+  toast(`✓ Freeze window added: ${name}`);
+  btn.closest('.freeze-manager').remove();
+  renderCalendar();
+}
+
+function removeFreezeWindow(id) {
+  FREEZE_WINDOWS=FREEZE_WINDOWS.filter(f=>f.id!==id);
+  toast('Freeze window removed','warn');
+  renderCalendar();
+}
+
+function toggleFreezeActive(id,active) {
+  FREEZE_WINDOWS=FREEZE_WINDOWS.map(f=>f.id===id?{...f,active}:f);
+  toast(active?'Freeze window enabled':'Freeze window disabled');
+  renderCalendar();
+}
+
+function showCalPopup(event,dateKey) {
+  const filtered=getCalRels(); const dayRels=filtered.filter(r=>calDateKey(r.plannedStart)===dateKey);
+  const popup=$('cal-popup'); if(!popup) return;
+  if(!dayRels.length&&!isFreezeDay(new Date(dateKey))) { popup.style.display='none'; return; }
+  const [y,m,d]=dateKey.split('-');
+  const label=new Date(y,m-1,d).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  const fw=FREEZE_WINDOWS.find(f=>f.active&&dateKey>=f.start&&dateKey<=f.end);
+  popup.innerHTML=`<div style="padding:9px 12px;border-bottom:1px solid var(--border);background:var(--bg3);display:flex;align-items:center;justify-content:space-between;">
+    <span style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);">${label}</span>
+    <div style="display:flex;gap:6px;"><button class="btn btn-outline btn-sm" onclick="openFreezeManagerOnDate('${dateKey}')">❄ Freeze</button><button onclick="$('cal-popup').style.display='none'" style="background:none;border:none;color:var(--text3);cursor:pointer;">✕</button></div>
+  </div>
+  ${fw?`<div style="padding:7px 12px;background:var(--warn-dim);font-family:'IBM Plex Mono';font-size:9px;color:var(--warn);">❄ ${fw.name}</div>`:''}
+  ${dayRels.map(r=>{ const c=DM[r.domain]?.c||'#888'; return `<div onclick="openRelease('${r.id}');$('cal-popup').style.display='none';" style="padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;" onmouseover="this.style.background='var(--accent-dim)'" onmouseout="this.style.background=''">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><div style="width:7px;height:7px;border-radius:50%;background:${c};"></div><span style="font-size:12px;font-weight:500;color:var(--text1);">${r.title}</span></div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:3px;">${dBadge(r.domain)} ${sBadge(r.status)}</div>
+    <div style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);">${r.relNum} · ${r.plannedStartTime||'—'} UTC</div>
+    ${r.outageRequired==='yes'?`<div style="font-family:'IBM Plex Mono';font-size:8px;color:var(--danger);margin-top:2px;">⚠ Outage — ${r.impactType}</div>`:''}
+  </div>`; }).join('')}
+  ${!dayRels.length?`<div style="padding:12px;text-align:center;color:var(--text3);font-size:11px;">${fw?'Freeze window — no releases':''}</div>`:''}`;
+  popup.style.display='block';
+  const vw=window.innerWidth,pw=270;
+  let left=event.clientX+10,top=event.clientY+10;
+  if(left+pw>vw-10) left=event.clientX-pw-10;
+  if(top+300>window.innerHeight-10) top=window.innerHeight-320;
+  popup.style.left=left+'px'; popup.style.top=top+'px';
+  setTimeout(()=>document.addEventListener('click',closeCalPopupOnce),50);
+}
+function closeCalPopupOnce(){ const p=$('cal-popup'); if(p) p.style.display='none'; document.removeEventListener('click',closeCalPopupOnce); }
+
+// ── OIRB Board update — remove schedule meeting ───────────────
+function renderOIRB() {
+  const queue=RELS.filter(r=>r.status==='oirb_review');
+  const upcoming=OIRB_MEETINGS.filter(m=>m.status==='scheduled').sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const past=OIRB_MEETINGS.filter(m=>m.status==='completed').sort((a,b)=>new Date(b.date)-new Date(a.date));
+
+  sv('oirb-k-queue',queue.length);
+  sv('oirb-k-scheduled',upcoming.length);
+
+  // OIRB schedule config
+  sv('oirb-schedule-info',`<div style="padding:10px 14px;background:var(--accent-dim);border:1px solid rgba(0,229,176,0.2);border-radius:3px;margin-bottom:12px;">
+    <div style="font-family:'IBM Plex Mono';font-size:8px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);margin-bottom:4px;">FIXED OIRB SCHEDULE</div>
+    <div style="font-size:13px;font-weight:600;color:var(--text1);">Every ${DAY_NAMES[OIRB_DAY]} at ${String(OIRB_HOUR).padStart(2,'0')}:${String(OIRB_MIN).padStart(2,'0')} UTC</div>
+    <div style="font-size:11px;color:var(--text2);margin-top:3px;">Requestors select which ${DAY_NAMES[OIRB_DAY]} slot they want their release reviewed. OIRB chair approves/defers/rejects from this board.</div>
+    <button class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="changeOIRBSchedule()">⚙ Change Schedule</button>
+  </div>`);
+
+  // Upcoming meetings
+  sv('oirb-upcoming',upcoming.length?upcoming.map(m=>{
+    const rels=RELS.filter(r=>m.relIds.includes(r.id));
+    return `<div class="card" style="margin-bottom:10px;border-left:3px solid var(--accent);">
+      <div class="card-header"><span style="font-size:16px;">📅</span><span class="card-title">${fmtDT(m.date)}</span>
+        <span style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);">— ${m.location}</span>
+        <span class="badge" style="background:var(--warn-dim);color:var(--warn);margin-left:auto;">${rels.length} release${rels.length!==1?'s':''}</span>
+        <button class="btn btn-outline btn-sm" onclick="exportMeetingPack('${m.id}')">⬇ Pack</button>
+      </div>
+      <div class="card-body"><div style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);">Attendees: ${m.attendees.slice(0,4).join(' · ')}${m.attendees.length>4?` +${m.attendees.length-4} more`:''}</div></div>
+    </div>`;
+  }).join(''):`<div style="padding:20px;text-align:center;font-family:'IBM Plex Mono';font-size:10px;color:var(--text3);">No releases have selected a slot yet</div>`);
+
+  // Queue
+  sv('oirb-queue-list',queue.length?`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg3);">
+      <span style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);">${queue.length} release${queue.length!==1?'s':''} awaiting decision</span>
+      ${queue.filter(r=>r.risk<60).length>1?`<button class="btn btn-success btn-sm" onclick="bulkApprove()">✓ Bulk Approve Low Risk (${queue.filter(r=>r.risk<60).length})</button>`:''}
+    </div>
+    ${queue.map(r=>`<div style="padding:14px;border-bottom:1px solid var(--border);">
+      <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+        <div style="flex:1;min-width:200px;">
+          <div style="font-family:'IBM Plex Mono';font-size:10px;color:var(--accent);">${r.relNum}</div>
+          <div style="font-size:14px;font-weight:500;color:var(--text1);margin:3px 0;">${r.title}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:5px;">${dBadge(r.domain)} ${rBadge(r.rl)}</div>
+          <div style="font-size:11px;color:var(--text3);">Owner: ${r.owner||'—'} · CHG: ${r.chg||'—'} · ${fmtD(r.plannedStart)}</div>
+          ${r.oirbMeeting?.scheduledAt?`<div style="font-family:'IBM Plex Mono';font-size:9px;color:var(--success);margin-top:3px;">📅 Slot: ${new Date(r.oirbMeeting.scheduledAt).toLocaleDateString('en-GB',{day:'numeric',month:'short'})} ${String(OIRB_HOUR).padStart(2,'0')}:${String(OIRB_MIN).padStart(2,'0')} UTC</div>`:`<div style="font-family:'IBM Plex Mono';font-size:9px;color:var(--warn);margin-top:3px;">⚠ No OIRB slot selected yet</div>`}
+        </div>
+        <div style="min-width:160px;">
+          <div style="font-family:'IBM Plex Mono';font-size:8px;color:var(--text3);margin-bottom:4px;">RISK SCORE</div>
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;">
+            <div style="width:60px;height:6px;background:var(--border);border-radius:3px;overflow:hidden;"><div style="height:100%;width:${r.risk||0}%;background:${riskC(r.risk||0)};"></div></div>
+            <span style="font-family:'IBM Plex Mono';font-size:14px;font-weight:700;color:${riskC(r.risk||0)};">${r.risk||'?'}</span>
+          </div>
+          <div>${(r.compliance||[]).map(cTag).join('')}</div>
+        </div>
+        <div style="min-width:160px;">
+          <div style="font-family:'IBM Plex Mono';font-size:8px;color:var(--text3);margin-bottom:4px;">OUTAGE IMPACT</div>
+          <div style="font-size:11px;color:${r.outageRequired==='yes'?'var(--danger)':'var(--success)'};">${r.outageRequired==='yes'?`⚠ ${r.impactType||'Planned Outage'}`:'✓ No outage'}</div>
+          <div style="font-size:11px;color:var(--text2);">${r.usersAffected||'—'}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" onclick="openRelease('${r.id}')">View Full Record</button>
+        <button class="btn btn-success btn-sm" onclick="oirbDecision('${r.id}','approved')">✓ Approve</button>
+        <button class="btn btn-warn btn-sm" onclick="oirbDecision('${r.id}','deferred')">⏸ Defer</button>
+        <button class="btn btn-danger btn-sm" onclick="oirbDecision('${r.id}','rejected')">✗ Reject</button>
+      </div>
+    </div>`).join('')}`:`<div style="padding:40px;text-align:center;font-family:'IBM Plex Mono';font-size:11px;color:var(--text3);">No releases awaiting OIRB decision</div>`);
+
+  sv('oirb-history-tbody',past.map(m=>{
+    const rels=RELS.filter(r=>m.relIds.includes(r.id));
+    return `<tr><td class="td-mono" style="color:var(--text3);">${fmtDT(m.date)}</td>
+      <td style="font-size:11px;">${rels.map(r=>`${r.relNum}`).join(', ')}</td>
+      <td style="font-size:11px;">${m.attendees.slice(0,3).join(', ')}…</td>
+      <td><span class="badge" style="background:var(--success-dim);color:var(--success);">Completed</span></td>
+      <td><button class="btn btn-outline btn-sm" onclick="exportMeetingPack('${m.id}')">⬇ Pack</button></td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text3);">No history</td></tr>');
+}
+
+function changeOIRBSchedule() {
+  const day=prompt(`OIRB meeting day (0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri): current=${OIRB_DAY}`);
+  if(day===null) return;
+  const hour=prompt(`OIRB meeting hour UTC (0-23): current=${OIRB_HOUR}`);
+  if(hour===null) return;
+  OIRB_DAY=parseInt(day)||2; OIRB_HOUR=parseInt(hour)||14;
+  toast(`✓ OIRB schedule updated: ${DAY_NAMES[OIRB_DAY]}s at ${String(OIRB_HOUR).padStart(2,'0')}:00 UTC`);
+  renderOIRB();
 }
 
 
