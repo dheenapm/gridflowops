@@ -810,7 +810,7 @@ tbody td{padding:8px 12px;font-size:12px;color:var(--text2);vertical-align:middl
 
 <!-- Load JS files in order -->
 <script>
-// ── DATA ─────────────────────────────────────────
+// DATA
 // ============================================================
 // GRIDFLOW DATA — gridflow_data.js
 // Place this file in the same folder as gridflow.html
@@ -864,13 +864,7 @@ let RELS = [
     plannedStart: df(5), plannedStartTime: '22:00', plannedEndTime: '02:00',
     actualStart: null, actualEnd: null,
     desc: 'Upgraded generation dispatch algorithm with improved renewable forecasting and DERMS integration. Includes changes to unit commitment optimizer interface.',
-    releaseNotes: 'Key changes:
-1. Dispatch algorithm v4.3 — improved renewable integration
-2. DERMS interface update — supports AutoGrid Flex API v4.1
-3. PI Historian data feed optimization
-
-Known issues: None identified in staging.
-Verification: Run dispatch simulation suite post-deployment.',
+    releaseNotes: 'Key changes:\n1. Dispatch algorithm v4.3 — improved renewable integration\n2. DERMS interface update — supports AutoGrid Flex API v4.1\n3. PI Historian data feed optimization\n\nKnown issues: None identified in staging.\nVerification: Run dispatch simulation suite post-deployment.',
     rollbackPlan: 'Restore EMS Core v4.2.1 from pre-deployment snapshot on GEN-DB-SRV-01. Estimated rollback time: 35 minutes. Rollback tested in staging on 2026-04-28.',
     attachments: [
       { name: 'EMS_v4.3.0_ReleaseNotes.pdf', size: '2.4 MB', type: 'pdf' },
@@ -903,12 +897,7 @@ Verification: Run dispatch simulation suite post-deployment.',
     plannedStart: df(10), plannedStartTime: '22:00', plannedEndTime: '04:00',
     actualStart: null, actualEnd: null,
     desc: 'Firmware upgrade for 2M+ smart meters. Includes TOU rate support, improved disconnect/reconnect logic, and AMI-DERMS integration for demand response.',
-    releaseNotes: 'Key changes:
-1. TOU rate support — enables time-of-use billing per FERC Order 887
-2. Disconnect/reconnect logic improvement — 40% faster response
-3. AMI-DERMS integration — demand response capability
-
-Verification: Run AMI communication test suite, verify 100 sample meters.',
+    releaseNotes: 'Key changes:\n1. TOU rate support — enables time-of-use billing per FERC Order 887\n2. Disconnect/reconnect logic improvement — 40% faster response\n3. AMI-DERMS integration — demand response capability\n\nVerification: Run AMI communication test suite, verify 100 sample meters.',
     rollbackPlan: 'Restore AMI Head-End v5.2.3 from backup. Meter firmware cannot be rolled back remotely — requires field dispatch for affected meters.',
     attachments: [
       { name: 'AMI_v5.3.0_UpgradeGuide.pdf', size: '4.2 MB', type: 'pdf' },
@@ -941,13 +930,7 @@ Verification: Run AMI communication test suite, verify 100 sample meters.',
     plannedStart: df(3), plannedStartTime: '23:00', plannedEndTime: '03:00',
     actualStart: df(3) + 'T23:00:00', actualEnd: null,
     desc: 'New EV rate structure (TOU-EV-1) and solar net metering billing rules per FERC Order 887. Includes Oracle CC&B schema migration and rate engine update.',
-    releaseNotes: 'Key changes:
-1. TOU-EV-1 rate structure — EV charging incentive billing
-2. Solar NEM 3.0 billing rules
-3. Oracle CC&B schema migration — 4 new tables
-4. Rate Engine API v1.6.1 update
-
-WARNING: DB migration is irreversible. Ensure backup completed before proceed.',
+    releaseNotes: 'Key changes:\n1. TOU-EV-1 rate structure — EV charging incentive billing\n2. Solar NEM 3.0 billing rules\n3. Oracle CC&B schema migration — 4 new tables\n4. Rate Engine API v1.6.1 update\n\nWARNING: DB migration is irreversible. Ensure backup completed before proceed.',
     rollbackPlan: 'DB snapshot taken at T-1hr. Restore procedure: 1) Stop CC&B services, 2) Restore Oracle snapshot, 3) Restart services. Estimated: 45 minutes.',
     attachments: [
       { name: 'CCB_v8.4.0_DBMigration_Script.sql', size: '890 KB', type: 'sql' },
@@ -1374,8 +1357,612 @@ let NOTIFS = [
   { id: 'n005', type: 'conflict', msg: 'Advisory conflict detected — 2 Distribution releases overlap May 15', ts: new Date(Date.now() - 14400000).toISOString(), read: true }
 ];
 
+// GLUE
+// ============================================================
+// GRIDFLOW — GLUE FILE (gridflow_glue.js)
+// All missing functions connecting logic1 and logic2
+// ============================================================
 
-// ── LOGIC PART 1 ─────────────────────────────────
+// ── Helper: set inner text of element by id ──────────────────
+const sv = (id, val) => { const el = document.getElementById(id); if (el) el.innerHTML = val; };
+
+// ── Helper: add audit entry ──────────────────────────────────
+function addAudit(actor, action, entity, domain, detail) {
+  AUDIT.unshift({
+    id: gidN(), actor, action, entity: entity || '—',
+    domain: domain || null,
+    ts: new Date().toISOString(),
+    detail: detail || '',
+    hash: 'sha:' + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10)
+  });
+}
+
+// ── Helper: update nav badges ────────────────────────────────
+function updateNavBadges() {
+  const nbAp = document.getElementById('nb-approvals');
+  if (nbAp) nbAp.textContent = APS.filter(a => a.status === 'pending').length;
+  const nbOv = document.getElementById('nb-overdue');
+  if (nbOv) nbOv.textContent = CI.filter(ci => rvStatus(ci).s === 'overdue').length;
+  const nbOirb = document.getElementById('nb-oirb');
+  if (nbOirb) nbOirb.textContent = OIRB_MEETINGS.filter(b => b.outcome === 'pending').length;
+}
+
+// ── Sort for Risk Register ───────────────────────────────────
+let rrSortKey = 'risk', rrSortDir = -1;
+function sortRR(col) {
+  if (rrSortKey === col) rrSortDir *= -1; else { rrSortKey = col; rrSortDir = -1; }
+  renderRiskRegister();
+}
+
+// ── Approval Decision ────────────────────────────────────────
+let currentApId = null, apAction = null;
+
+function openApDecision(action) {
+  const body = document.getElementById('ap-modal-body');
+  if (!body) return;
+  const rId = body.dataset.rId;
+  if (!rId) return;
+  const r = RELS.find(x => x.id === rId);
+  if (!r) return;
+  currentApId = rId; apAction = action;
+  const info = document.getElementById('apc-release-info');
+  if (info) info.innerHTML = `
+    <div style="font-size:13px;font-weight:500;color:var(--text1);margin-bottom:5px;">${r.title}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">${dBadge(r.domain)} ${riskBadge(r.risk)} ${sBadge(r.status)}</div>
+    <div style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);margin-top:4px;">CHG: ${r.chg || '—'}</div>`;
+  const icon = document.getElementById('apc-icon');
+  const title = document.getElementById('apc-title');
+  const btn = document.getElementById('apc-confirm-btn');
+  if (action === 'approved') {
+    if (icon) icon.textContent = '✅';
+    if (title) title.textContent = 'Confirm Approval';
+    if (btn) { btn.className = 'btn btn-success'; btn.textContent = '✓ Confirm Approval'; }
+  } else if (action === 'deferred') {
+    if (icon) icon.textContent = '⏸';
+    if (title) title.textContent = 'Confirm Deferral';
+    if (btn) { btn.className = 'btn btn-warn'; btn.textContent = '⏸ Confirm Deferral'; }
+  } else {
+    if (icon) icon.textContent = '❌';
+    if (title) title.textContent = 'Confirm Rejection';
+    if (btn) { btn.className = 'btn btn-danger'; btn.textContent = '✗ Confirm Rejection'; }
+  }
+  const comment = document.getElementById('apc-comment');
+  if (comment) comment.value = '';
+  closeMod('mod-ap');
+  openMod('mod-ap-confirm');
+}
+
+function doApprovalDecision() {
+  const comment = document.getElementById('apc-comment')?.value.trim();
+  if (!comment) { toast('Comment is required for all decisions', 'error'); return; }
+  if (!currentApId || !apAction) return;
+  const r = RELS.find(x => x.id === currentApId);
+  if (!r) return;
+  // Update the approval record
+  APS = APS.map(a => a.rId === currentApId && a.status === 'pending'
+    ? { ...a, status: apAction, comment, decided: new Date().toISOString() } : a);
+  // Update release status based on decision
+  if (apAction === 'approved') {
+    // Check if all approvals done
+    const remaining = APS.filter(a => a.rId === currentApId && a.status === 'pending');
+    if (remaining.length === 0) {
+      RELS = RELS.map(x => x.id === currentApId ? { ...x, status: 'approved' } : x);
+      NOTIFS.unshift({ id: gidN(), type: 'approval', msg: `Release approved: ${r.title}`, ts: new Date().toISOString(), read: false });
+    }
+  } else if (apAction === 'deferred' || apAction === 'rejected') {
+    RELS = RELS.map(x => x.id === currentApId ? { ...x, status: 'draft', oirbStatus: `${apAction} — ${comment.slice(0, 60)}` } : x);
+    NOTIFS.unshift({ id: gidN(), type: 'approval', rId: currentApId, msg: `Release ${apAction}: ${r.title} — returned to draft`, ts: new Date().toISOString(), read: false });
+    toast(`Release returned to Draft. Requester can edit and resubmit.`, 'warn');
+  }
+  addAudit(APS.find(a => a.rId === currentApId)?.approver || 'Approver',
+    `Approval ${apAction.toUpperCase()}`, r.title, r.domain, comment);
+  closeMod('mod-ap-confirm');
+  renderApprovals();
+  updateNavBadges();
+  updateNotifBadge();
+  if (apAction === 'approved') toast(`✓ Release approved successfully`);
+  if (apAction === 'rejected') toast(`Release rejected and returned to Draft`, 'error');
+}
+
+// ── New Release Wizard State ─────────────────────────────────
+let nrStep = 1, nrD = '', nrState = {}, nrImpacts = [], nrRisk = 0;
+
+function nrBack() {
+  if (nrStep === 1) { nav('dashboard', null); return; }
+  nrStep--;
+  updateNRWizard();
+}
+
+function nrNext() {
+  if (nrStep === 1) {
+    // Validate step 1
+    const chg = document.getElementById('nr-chg')?.value.trim();
+    if (!chg) { toast('CHG Number is mandatory', 'error'); document.getElementById('nr-chg')?.classList.add('error'); return; }
+    if (!/^CHG-\d{4}-\d{4}$/.test(chg)) { toast('CHG format must be CHG-YYYY-NNNN (e.g. CHG-2026-0042)', 'error'); return; }
+    if (!nrD) { toast('Please select a domain', 'error'); return; }
+    const appEl = document.getElementById('nr-app');
+    if (!appEl?.value) { toast('Please select an application', 'error'); return; }
+    const vtEl = document.getElementById('nr-vt');
+    if (!vtEl?.value.trim()) { toast('Target version is required', 'error'); return; }
+    // Save state
+    const g = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+    nrState = {
+      chg, domain: nrD, appId: g('nr-app'),
+      type: g('nr-type'), vf: g('nr-vf'), vt: g('nr-vt'),
+      env: g('nr-env'), owner: g('nr-owner'), priority: g('nr-priority'),
+      plannedStart: g('nr-planned-start'), plannedStartTime: g('nr-planned-start-time'),
+      plannedEndTime: g('nr-planned-end-time'),
+      desc: g('nr-desc'), rollbackPlan: g('nr-rollback'),
+      changeTypes: Array.from(document.querySelectorAll('.nr-cpill.on')).map(p => p.textContent)
+    };
+    // Freeze check
+    if (nrState.plannedStart) {
+      const d = new Date(nrState.plannedStart);
+      if (d.getDay() === 6) { toast('⚠ Warning: Saturday is a change freeze window. Emergency override required.', 'warn'); }
+    }
+    // Compute impacts
+    const matrix = IMPACT[nrD] || {};
+    nrImpacts = [];
+    Object.entries(matrix).forEach(([dd, items]) => items.forEach(i => nrImpacts.push({ domain: dd, ...i })));
+    // Compute conflicts
+    const conflicts = detectConflicts(null, nrD, nrState.appId, nrState.plannedStart, nrState.plannedStartTime, nrState.plannedStart, nrState.plannedEndTime);
+    nrState.conflicts = conflicts;
+    // Compute risk
+    nrRisk = calcRisk(nrD, nrState.type, nrState.env, nrImpacts.filter(i => i.i === 'direct').length, nrState.changeTypes.length, 0);
+    nrStep = 2;
+  } else if (nrStep < 6) {
+    nrStep++;
+  } else {
+    // Submit
+    submitNewRelease();
+    return;
+  }
+  updateNRWizard();
+}
+
+function selectNRDomain(d, el) {
+  nrD = d;
+  document.querySelectorAll('.dsg-card').forEach(c => { c.style.borderColor = ''; c.style.background = ''; c.classList.remove('selected'); });
+  el.classList.add('selected');
+  el.style.borderColor = DM[d].c;
+  el.style.background = 'var(--accent-dim)';
+  const appSel = document.getElementById('nr-app');
+  if (appSel) {
+    appSel.innerHTML = '<option value="">— Select application —</option>' +
+      CI.filter(ci => ci.domain === d).map(ci => `<option value="${ci.id}">${ci.name}</option>`).join('');
+  }
+}
+
+function submitNewRelease() {
+  const ci = CI.find(c => c.id === nrState.appId);
+  const rl = riskLevel(nrRisk);
+  const oirb = oirbRequired(nrRisk, nrState.type);
+  const rel = {
+    id: gidN(),
+    chg: nrState.chg,
+    title: `${ci?.name || 'Release'} ${nrState.vt}`,
+    domain: nrD,
+    app: ci?.name || '—',
+    type: nrState.type || 'IT Application',
+    vf: nrState.vf || ci?.version || '—',
+    vt: nrState.vt,
+    env: nrState.env || 'Production',
+    owner: nrState.owner || 'D. Brown',
+    priority: nrState.priority || 'Normal',
+    plannedStart: nrState.plannedStart,
+    plannedStartTime: nrState.plannedStartTime,
+    plannedEndTime: nrState.plannedEndTime,
+    desc: nrState.desc || '',
+    ct: nrState.changeTypes,
+    rollbackPlan: nrState.rollbackPlan || '',
+    status: 'submitted',
+    risk: nrRisk, rl,
+    oirbRequired: oirb,
+    di: nrImpacts.filter(i => i.i === 'direct').map(i => i.a),
+    ii: nrImpacts.filter(i => i.i === 'indirect').map(i => i.a),
+    cf: autoDetectCompliance(nrD, nrState.type),
+    conflicts: nrState.conflicts || [],
+    created: new Date().toISOString().split('T')[0],
+    updated: new Date().toISOString().split('T')[0]
+  };
+  RELS.unshift(rel);
+  // Auto-generate approval record
+  APS.push({ id: gidN(), rId: rel.id, approver: 'L. Patterson', role: 'Release Manager', domain: nrD, status: 'pending', sla: new Date(Date.now() + 4 * 86400000).toISOString().split('T')[0] });
+  addAudit(rel.owner, 'Release CREATED & SUBMITTED', rel.title, nrD, `CHG: ${rel.chg} | Risk: ${nrRisk}`);
+  NOTIFS.unshift({ id: gidN(), type: 'approval', rId: rel.id, msg: `New release submitted: ${rel.title} — approval required`, ts: new Date().toISOString(), read: false });
+  updateNavBadges(); updateNotifBadge();
+  toast(`🚀 Release submitted: ${rel.title}`);
+  nav('releases', null);
+}
+
+function autoDetectCompliance(domain, type) {
+  const flags = [];
+  if (type === 'OT / SCADA') { flags.push('NERC CIP'); flags.push('IEC 62351'); }
+  if (domain === 'bill') { flags.push('SOX'); flags.push('GDPR/PII'); }
+  if (domain === 'tx') { flags.push('FERC'); }
+  if (domain === 'cx') { flags.push('GDPR/PII'); }
+  if (['gen', 'dx'].includes(domain)) { flags.push('ISO 55000'); }
+  return [...new Set(flags)];
+}
+
+function updateNRWizard() {
+  for (let i = 1; i <= 6; i++) {
+    const ws = document.getElementById('ws' + i);
+    if (!ws) continue;
+    ws.classList.remove('active', 'done');
+    if (i < nrStep) ws.classList.add('done');
+    if (i === nrStep) ws.classList.add('active');
+  }
+  const prog = document.getElementById('nr-prog');
+  if (prog) prog.style.width = (((nrStep - 1) / 5) * 100) + '%';
+  const lbl = document.getElementById('nr-step-lbl');
+  if (lbl) lbl.textContent = `Step ${nrStep} of 6`;
+  const nextLabels = { 1: 'Analyze Impact →', 2: 'Calculate Risk →', 3: 'Compliance Check →', 4: 'OIRB Briefing →', 5: 'Review & Submit →', 6: '🚀 Submit Release' };
+  const nextBtn = document.getElementById('nr-next');
+  if (nextBtn) nextBtn.textContent = nextLabels[nrStep] || 'Next →';
+  renderNRStep();
+}
+
+function renderNRStep() {
+  const area = document.getElementById('nr-step-area');
+  if (!area) return;
+  const g = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+
+  if (nrStep === 1) {
+    area.innerHTML = `
+    <div class="card">
+      <div class="card-header"><span style="font-size:18px;">🚀</span><span class="card-title">Define Release</span></div>
+      <div class="card-body">
+        <div class="fg"><div class="fl fl-req">IT CHG Request Number</div>
+          <input class="fi" id="nr-chg" placeholder="CHG-2026-0042 (mandatory — links to your change ticketing system)" value="${nrState.chg || ''}">
+          <div class="ferr" id="nr-chg-err"></div>
+        </div>
+        <div class="fg"><div class="fl fl-req">Select Domain</div>
+          <div class="dsg-grid">
+            ${Object.entries(DM).map(([dk, dm]) => `
+              <div class="dsg-card${nrD === dk ? ' selected' : ''}" onclick="selectNRDomain('${dk}',this)" style="${nrD === dk ? 'border-color:' + dm.c + ';background:var(--accent-dim);' : ''}">
+                <div style="font-size:20px;margin-bottom:4px;">${dm.i}</div>
+                <div style="font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:${nrD === dk ? dm.c : 'var(--text2)'};">${dm.l}</div>
+                <div style="font-family:'IBM Plex Mono';font-size:8px;color:var(--text3);">${CI.filter(c => c.domain === dk).length} apps</div>
+              </div>`).join('')}
+          </div>
+        </div>
+        <div class="fr2">
+          <div class="fg"><div class="fl fl-req">Application</div>
+            <select class="fs" id="nr-app">
+              <option value="">— Select domain first —</option>
+              ${nrD ? CI.filter(ci => ci.domain === nrD).map(ci => `<option value="${ci.id}"${nrState.appId === ci.id ? ' selected' : ''}>${ci.name}</option>`).join('') : ''}
+            </select>
+          </div>
+          <div class="fg"><div class="fl">Release Type</div>
+            <select class="fs" id="nr-type">
+              <option${nrState.type === 'OT / SCADA' ? ' selected' : ''}>OT / SCADA</option>
+              <option${nrState.type === 'IT Application' || !nrState.type ? ' selected' : ''}>IT Application</option>
+              <option${nrState.type === 'SaaS' ? ' selected' : ''}>SaaS</option>
+              <option${nrState.type === 'API / Microservice' ? ' selected' : ''}>API / Microservice</option>
+              <option${nrState.type === 'Infrastructure' ? ' selected' : ''}>Infrastructure</option>
+            </select>
+          </div>
+          <div class="fg"><div class="fl">Version From (current)</div><input class="fi" id="nr-vf" placeholder="e.g. v4.2.1" value="${nrState.vf || ''}"></div>
+          <div class="fg"><div class="fl fl-req">Version To (target)</div><input class="fi" id="nr-vt" placeholder="e.g. v4.3.0" value="${nrState.vt || ''}"></div>
+          <div class="fg"><div class="fl">Environment</div>
+            <select class="fs" id="nr-env">
+              <option${nrState.env === 'Production' || !nrState.env ? ' selected' : ''}>Production</option>
+              <option${nrState.env === 'Production OT' ? ' selected' : ''}>Production OT</option>
+              <option${nrState.env === 'Staging' ? ' selected' : ''}>Staging</option>
+              <option${nrState.env === 'DR / Failover' ? ' selected' : ''}>DR / Failover</option>
+            </select>
+          </div>
+          <div class="fg"><div class="fl">Owner</div><input class="fi" id="nr-owner" placeholder="e.g. R. Patel" value="${nrState.owner || ''}"></div>
+          <div class="fg"><div class="fl fl-req">Planned Start Date</div><input class="fi" type="date" id="nr-planned-start" value="${nrState.plannedStart || ''}"></div>
+          <div class="fg"><div class="fl">Planned Start Time (UTC)</div><input class="fi" type="time" id="nr-planned-start-time" value="${nrState.plannedStartTime || '22:00'}"></div>
+          <div class="fg"><div class="fl">Planned End Time (UTC)</div><input class="fi" type="time" id="nr-planned-end-time" value="${nrState.plannedEndTime || '02:00'}"></div>
+          <div class="fg"><div class="fl">Priority</div>
+            <select class="fs" id="nr-priority">
+              <option${nrState.priority === 'Normal' || !nrState.priority ? ' selected' : ''}>Normal</option>
+              <option${nrState.priority === 'High' ? ' selected' : ''}>High</option>
+              <option${nrState.priority === 'Critical' ? ' selected' : ''}>Critical</option>
+            </select>
+          </div>
+        </div>
+        <div class="fg"><div class="fl fl-req">Release Notes / Description</div><textarea class="ft" id="nr-desc" placeholder="What does this release change, fix, or introduce? What should reviewers know?">${nrState.desc || ''}</textarea></div>
+        <div class="fg"><div class="fl fl-req">Rollback Plan</div><textarea class="ft" id="nr-rollback" placeholder="Step-by-step rollback procedure if deployment fails…">${nrState.rollbackPlan || ''}</textarea></div>
+        <div class="fg"><div class="fl">Change Types</div>
+          <div>${['Bug Fix','Feature Release','Security Patch','Configuration Change','Database Migration','Integration Update','Compliance Update','Emergency Hotfix'].map(ct =>
+            `<span class="cpill nr-cpill${(nrState.changeTypes || []).includes(ct) ? ' on' : ''}" onclick="this.classList.toggle('on')">${ct}</span>`).join('')}</div>
+        </div>
+      </div>
+    </div>`;
+
+  } else if (nrStep === 2) {
+    const ci = CI.find(c => c.id === nrState.appId);
+    const dm = DM[nrD];
+    const conflicts = nrState.conflicts || [];
+    area.innerHTML = `
+    <div class="card">
+      <div class="card-header"><span style="font-size:18px;">🔍</span><span class="card-title">Impact Analysis & Conflict Detection</span></div>
+      <div class="card-body">
+        <div style="background:var(--bg3);border:1px solid var(--border);padding:10px;margin-bottom:12px;border-radius:2px;">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
+            <span style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);">Release —</span>
+            <span style="font-size:13px;font-weight:500;color:var(--text1);">${ci?.name || '—'}</span>
+            ${dBadge(nrD)}
+            <span style="font-family:'IBM Plex Mono';font-size:10px;color:var(--accent);">${nrState.vf || '?'} → ${nrState.vt || '?'}</span>
+            <span style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);">📅 ${nrState.plannedStart || '—'} ${nrState.plannedStartTime || ''} – ${nrState.plannedEndTime || ''} UTC</span>
+          </div>
+        </div>
+        ${conflicts.length > 0 ? conflicts.map(c => `
+          <div class="conflict-banner conflict-${c.type}">
+            <span style="font-size:16px;">${c.type === 'hard' ? '🔴' : c.type === 'soft' ? '🟡' : '🔵'}</span>
+            <div>
+              <div style="font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;color:${c.type === 'hard' ? 'var(--danger)' : c.type === 'soft' ? 'var(--warn)' : 'var(--info)'};">${c.type.toUpperCase()} CONFLICT — ${c.title}</div>
+              <div style="font-size:11px;color:var(--text2);">${c.reason}</div>
+            </div>
+          </div>`).join('') : '<div style="padding:9px;background:var(--success-dim);border:1px solid rgba(34,197,94,0.3);border-radius:2px;font-size:12px;color:var(--success);margin-bottom:10px;">✓ No scheduling conflicts detected for this deployment window</div>'}
+        <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Found <span style="color:var(--danger);font-weight:600;">${nrImpacts.filter(i=>i.i==='direct').length} direct</span> and <span style="color:var(--warn);font-weight:600;">${nrImpacts.filter(i=>i.i==='indirect').length} indirect</span> impacts across ${[...new Set(nrImpacts.map(i=>i.domain))].length} other domains.</div>
+        <div class="g2">
+          ${Object.entries(DM).filter(([dk]) => dk !== nrD).map(([dk, dm]) => {
+            const items = nrImpacts.filter(i => i.domain === dk);
+            const hasD = items.some(i => i.i === 'direct');
+            return `<div class="card" style="border-top:2px solid ${dm.c};">
+              <div class="card-header"><span>${dm.i}</span><span class="card-title" style="color:${dm.c};">${dm.l}</span>
+                <span style="margin-left:auto;font-family:'IBM Plex Mono';font-size:8px;padding:1px 6px;border-radius:2px;background:${hasD?'var(--danger-dim)':items.length>0?'var(--warn-dim)':'var(--border)'};color:${hasD?'var(--danger)':items.length>0?'var(--warn)':'var(--text3)'};">${hasD?'HIGH IMPACT':items.length>0?'INDIRECT':'NONE'}</span>
+              </div>
+              <div>${items.length ? items.map(i => `
+                <div style="display:flex;align-items:flex-start;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border);">
+                  <span style="font-family:'IBM Plex Mono';font-size:8px;padding:1px 5px;border-radius:2px;flex-shrink:0;background:${i.i==='direct'?'var(--danger-dim)':'var(--warn-dim)'};color:${i.i==='direct'?'var(--danger)':'var(--warn)'};">${i.i}</span>
+                  <div><div style="font-size:12px;font-weight:500;color:var(--text1);">${i.a}</div><div style="font-size:11px;color:var(--text3);">${i.r}</div></div>
+                </div>`).join('') : '<div style="padding:10px 12px;font-family:\'IBM Plex Mono\';font-size:10px;color:var(--text3);">No dependency detected</div>'}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+
+  } else if (nrStep === 3) {
+    const rl = riskLevel(nrRisk);
+    const col = riskC(nrRisk);
+    area.innerHTML = `
+    <div class="card">
+      <div class="card-header"><span style="font-size:18px;">🎯</span><span class="card-title">Risk Scoring</span></div>
+      <div class="card-body" style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:24px 16px;">
+        <div style="position:relative;width:120px;height:120px;">
+          <svg style="width:100%;height:100%;" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="42" fill="none" stroke="var(--border)" stroke-width="8"/>
+            <circle cx="50" cy="50" r="42" fill="none" stroke="${col}" stroke-width="8" stroke-linecap="round"
+              stroke-dasharray="264" stroke-dashoffset="${264-(264*nrRisk/100)}" transform="rotate(-90 50 50)"/>
+          </svg>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-55%);font-family:'Rajdhani',sans-serif;font-size:32px;font-weight:700;color:${col};">${nrRisk}</div>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,30%);font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);">/100</div>
+        </div>
+        <div style="font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;letter-spacing:2px;color:${col};">${rl} RISK</div>
+        <div style="width:100%;max-width:420px;">
+          ${[
+            ['Domain Criticality', {gen:85,tx:90,dx:75,bill:70,cx:55}[nrD]||60],
+            ['Release Type', {'OT / SCADA':90,'IT Application':50,'SaaS':40,'API / Microservice':55,'Infrastructure':70}[nrState.type]||50],
+            ['Direct Dependencies', Math.min(99, nrImpacts.filter(r=>r.i==='direct').length * 20 + 15)],
+            ['Change Complexity', Math.min(99, (nrState.changeTypes?.length||1) * 15 + 10)],
+            ['Environment Risk', {'Production':90,'Production OT':100,'Staging':35,'Development':15,'DR / Failover':60}[nrState.env]||50]
+          ].map(([l,v]) => `
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+              <span style="font-size:11px;color:var(--text2);width:170px;flex-shrink:0;">${l}</span>
+              <div class="risk-bar-wrap"><div class="risk-bar-fill" style="background:${v>70?'#ef4444':v>40?'#f59e0b':'#22c55e'};width:${Math.min(100,v)}%;"></div></div>
+              <span style="font-family:'IBM Plex Mono';font-size:10px;color:var(--text3);width:24px;text-align:right;">${Math.min(100,v)}</span>
+            </div>`).join('')}
+        </div>
+        <div style="width:100%;max-width:420px;padding:10px;border-radius:2px;background:${nrRisk>=60?'var(--warn-dim)':'var(--success-dim)'};border:1px solid ${nrRisk>=60?'rgba(245,158,11,0.3)':'rgba(34,197,94,0.3)'};">
+          <div style="font-family:'IBM Plex Mono';font-size:9px;text-transform:uppercase;letter-spacing:1px;color:${nrRisk>=60?'var(--warn)':'var(--success)'};margin-bottom:3px;">OIRB Requirement</div>
+          <div style="font-size:12px;color:var(--text2);">${nrRisk>=80?'⚠ OIRB Review MANDATORY — Critical risk. Full board review required.':nrRisk>=60?'⚠ OIRB Review REQUIRED — High risk. Board approval needed before deployment.':'✓ OIRB Not Required — Risk within direct approval threshold.'}</div>
+        </div>
+      </div>
+    </div>`;
+
+  } else if (nrStep === 4) {
+    const compFlags = autoDetectCompliance(nrD, nrState.type || 'IT Application');
+    area.innerHTML = `
+    <div class="card">
+      <div class="card-header"><span style="font-size:18px;">🛡️</span><span class="card-title">Compliance Analysis</span></div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:8px;">
+        ${[
+          ['NERC CIP','(nrState.type||"") === "OT / SCADA"','OT/SCADA releases subject to CIP-005, CIP-007, CIP-010. Evidence and access controls required.'],
+          ['SOX','nrD === "bill"','Billing system changes require change management documentation and finance sign-off.'],
+          ['IEC 62351','(nrState.type||"") === "OT / SCADA" && ["gen","tx"].includes(nrD)','Power system communications security — Generation and Transmission OT releases.'],
+          ['FERC','nrD === "tx" || nrD === "bill"','Federal Energy Regulatory Commission requirements for transmission and billing rate changes.'],
+          ['ISO 55000','["gen","dx"].includes(nrD)','Asset management standard — Generation and Distribution asset lifecycle releases.'],
+          ['GDPR/PII','nrD === "cx"','Customer data privacy — all customer-facing application changes must document PII handling.'],
+        ].map(([fw, condStr, desc]) => {
+          const applies = compFlags.includes(fw);
+          return `<div style="display:flex;align-items:flex-start;gap:12px;padding:11px;border-radius:2px;border:1px solid ${applies?'rgba(245,158,11,0.3)':'var(--border)'};background:${applies?'var(--warn-dim)':'var(--bg3)'};">
+            <span style="color:${applies?'var(--warn)':'var(--text3)'};font-size:16px;flex-shrink:0;">${applies?'⚠':'—'}</span>
+            <div style="flex:1;"><div style="font-family:'IBM Plex Mono';font-size:11px;font-weight:500;color:${applies?'var(--warn)':'var(--text3)'};">${fw}</div><div style="font-size:11px;color:var(--text2);margin-top:2px;line-height:1.5;">${desc}</div></div>
+            ${applies?`<span style="font-family:'IBM Plex Mono';font-size:8px;padding:2px 7px;background:var(--warn-dim);color:var(--warn);border-radius:2px;flex-shrink:0;">Required</span>`:''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+
+  } else if (nrStep === 5) {
+    const needsOIRB = oirbRequired(nrRisk, nrState.type || 'IT Application');
+    area.innerHTML = `
+    <div class="card">
+      <div class="card-header"><span style="font-size:18px;">👥</span><span class="card-title">OIRB — OT & IT Review Board</span></div>
+      <div class="card-body">
+        ${needsOIRB ? `
+        <div style="padding:10px;background:var(--warn-dim);border:1px solid rgba(245,158,11,0.3);border-radius:2px;margin-bottom:14px;">
+          <div style="font-family:'IBM Plex Mono';font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--warn);margin-bottom:3px;">OIRB REVIEW REQUIRED</div>
+          <div style="font-size:12px;color:var(--text2);">Risk score ${nrRisk}/100 (${riskLevel(nrRisk)})${nrState.type==='OT / SCADA'?' + OT/SCADA release type':''} — OIRB review is mandatory before this release can be approved.</div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);padding:12px;border-radius:2px;margin-bottom:12px;">
+          <div style="font-family:'IBM Plex Mono';font-size:8px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:8px;">Auto-invited attendees — based on impacted domains</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
+            ${['Generation Lead','Transmission Lead','Distribution Lead','Billing Lead','Customer Care Lead','IT Application Owner','Release Manager'].map(r=>`
+              <div style="display:flex;align-items:center;gap:7px;padding:5px;">
+                <div style="width:22px;height:22px;border-radius:50%;background:var(--accent-dim);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono';font-size:9px;color:var(--accent);font-weight:700;">${r[0]}</div>
+                <div style="font-size:12px;color:var(--text1);">${r}</div>
+              </div>`).join('')}
+          </div>
+        </div>
+        <div class="fg"><div class="fl">IT CAB Status</div>
+          <select class="fs" id="nr-cab">
+            <option value="not_required">Not Required</option>
+            <option value="to_be_presented">To Be Presented</option>
+            <option value="presented">Presented</option>
+          </select>
+        </div>
+        <div style="padding:10px;background:var(--bg3);border:1px solid var(--border);border-radius:2px;font-size:12px;color:var(--text2);line-height:1.6;">
+          On submission, an OIRB meeting will be auto-scheduled. All attendees will receive a briefing pack: impact analysis, risk score (${nrRisk}/100), compliance flags, dependency map, and rollback plan.
+          ${nrRisk>=60?'<br><strong style="color:var(--warn);">⚠ IT CAB attendance recommended due to high risk score.</strong>':''}
+        </div>` : `
+        <div style="padding:14px;background:var(--success-dim);border:1px solid rgba(34,197,94,0.3);border-radius:2px;text-align:center;">
+          <div style="font-size:24px;margin-bottom:6px;">✓</div>
+          <div style="font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:600;color:var(--success);margin-bottom:6px;">Direct Approval Path</div>
+          <div style="font-size:12px;color:var(--text2);">Risk score ${nrRisk}/100 (${riskLevel(nrRisk)}) — below OIRB threshold. This release will go directly to approval after submission. No OIRB meeting required.</div>
+        </div>`}
+      </div>
+    </div>`;
+
+  } else if (nrStep === 6) {
+    const ci = CI.find(c => c.id === nrState.appId);
+    const dm = DM[nrD];
+    const compFlags = autoDetectCompliance(nrD, nrState.type || 'IT Application');
+    const conflicts = nrState.conflicts || [];
+    area.innerHTML = `
+    <div class="card">
+      <div class="card-header"><span style="font-size:18px;">⚡</span><span class="card-title">Review & Submit</span></div>
+      <div class="card-body">
+        ${conflicts.filter(c=>c.type==='hard').length > 0 ? `<div class="conflict-banner conflict-hard" style="margin-bottom:12px;"><span style="font-size:16px;">🔴</span><div><div style="font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;color:var(--danger);">HARD CONFLICT — Cannot Submit</div><div style="font-size:11px;color:var(--text2);">${conflicts.filter(c=>c.type==='hard').map(c=>c.title).join(', ')} — overlapping deployment window on same application.</div></div></div>` : ''}
+        <div class="g3" style="margin-bottom:12px;">
+          ${[
+            ['CHG Number', nrState.chg],
+            ['Application', ci?.name || '—'],
+            ['Domain', dm?.l || '—'],
+            ['Release Type', nrState.type || '—'],
+            ['Version', `${nrState.vf||'?'} → ${nrState.vt||'?'}`],
+            ['Environment', nrState.env || '—'],
+            ['Owner', nrState.owner || '—'],
+            ['Planned Start', `${nrState.plannedStart||'—'} ${nrState.plannedStartTime||''}`],
+            ['Planned End', `${nrState.plannedStart||'—'} ${nrState.plannedEndTime||''}`],
+            ['Risk Score', `${nrRisk}/100 — ${riskLevel(nrRisk)}`],
+            ['OIRB Required', oirbRequired(nrRisk, nrState.type||'IT Application') ? '⚠ Yes' : '✓ No'],
+            ['Compliance Flags', compFlags.join(', ') || 'None'],
+          ].map(([k,v]) => `
+            <div style="background:var(--bg3);border:1px solid var(--border);padding:9px 10px;border-radius:2px;">
+              <div style="font-family:'IBM Plex Mono';font-size:8px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:2px;">${k}</div>
+              <div style="font-size:12px;font-weight:500;color:var(--text1);">${v||'—'}</div>
+            </div>`).join('')}
+        </div>
+        <div style="padding:10px;background:var(--info-dim);border:1px solid rgba(56,189,248,0.3);border-radius:2px;font-size:12px;color:var(--text2);line-height:1.5;">
+          Submitting will create the release record, run automated risk assessment, ${oirbRequired(nrRisk,nrState.type||'IT Application')?'schedule an OIRB meeting,':'generate a direct approval request,'} and notify all relevant stakeholders.
+        </div>
+      </div>
+    </div>`;
+  }
+}
+
+// ── Emergency Release Wizard ─────────────────────────────────
+let erStep = 1, erData = {};
+
+function erBack() {
+  if (erStep === 1) { nav('dashboard', null); return; }
+  erStep--;
+  updateERWizard();
+}
+
+function erNext() {
+  if (erStep === 1) {
+    const chg = document.getElementById('er-chg')?.value.trim();
+    if (!chg) { toast('CHG Number is mandatory even for emergency releases', 'error'); return; }
+    const reason = document.getElementById('er-reason')?.value.trim();
+    if (!reason) { toast('Emergency justification is required', 'error'); return; }
+    erData.chg = chg;
+    erData.reason = reason;
+    erData.domain = document.getElementById('er-domain')?.value || 'gen';
+    erData.desc = document.getElementById('er-desc')?.value || '';
+    erStep = 2;
+  } else if (erStep === 2) {
+    const approver = document.getElementById('er-approver')?.value.trim();
+    if (!approver) { toast('Single approver name is required', 'error'); return; }
+    erData.approver = approver;
+    erStep = 3;
+  } else if (erStep === 3) {
+    // Submit emergency release
+    const rel = {
+      id: gidN(), chg: erData.chg,
+      title: `EMERGENCY: ${erData.desc || erData.reason.slice(0, 50)}`,
+      domain: erData.domain, app: 'Emergency Hotfix',
+      type: 'IT Application', vf: '—', vt: 'hotfix',
+      env: 'Production', owner: erData.approver,
+      priority: 'Critical',
+      plannedStart: new Date().toISOString().split('T')[0],
+      desc: erData.reason, ct: ['Emergency Hotfix'],
+      status: 'approved', risk: 85, rl: 'CRITICAL',
+      oirbRequired: false, isEmergency: true,
+      di: [], ii: [], cf: [],
+      conflicts: [], created: new Date().toISOString().split('T')[0],
+      updated: new Date().toISOString().split('T')[0]
+    };
+    RELS.unshift(rel);
+    addAudit(erData.approver, '🚨 EMERGENCY RELEASE submitted', rel.title, erData.domain, `CHG: ${erData.chg} | Reason: ${erData.reason.slice(0,80)}`);
+    NOTIFS.unshift({ id: gidN(), type: 'approval', rId: rel.id, msg: `🚨 Emergency release submitted: ${rel.title}`, ts: new Date().toISOString(), read: false });
+    updateNavBadges(); updateNotifBadge();
+    toast('🚨 Emergency release submitted and auto-approved', 'warn');
+    nav('releases', null);
+    return;
+  }
+  updateERWizard();
+}
+
+function updateERWizard() {
+  const lbl = document.getElementById('er-step-lbl');
+  if (lbl) lbl.textContent = `Emergency Step ${erStep} of 3`;
+  renderERStep();
+}
+
+function renderERStep() {
+  const area = document.getElementById('er-step-area');
+  if (!area) return;
+  if (erStep === 1) {
+    area.innerHTML = `
+    <div class="card" style="border-top:2px solid var(--danger);">
+      <div class="card-header"><span style="font-size:16px;">🚨</span><span class="card-title" style="color:var(--danger);">Step 1 — Identify & Justify</span></div>
+      <div class="card-body">
+        <div style="padding:9px;background:var(--danger-dim);border:1px solid rgba(239,68,68,0.3);border-radius:2px;margin-bottom:12px;font-size:12px;color:var(--danger);">⚠ Emergency releases bypass the normal OIRB workflow. They are automatically flagged in the audit log and require mandatory post-deployment review.</div>
+        <div class="fg"><div class="fl fl-req">IT CHG Request Number</div><input class="fi" id="er-chg" placeholder="CHG-2026-0042"></div>
+        <div class="fg"><div class="fl fl-req">Affected Domain</div>
+          <select class="fs" id="er-domain">
+            ${Object.entries(DM).map(([dk,dm])=>`<option value="${dk}">${dm.i} ${dm.l}</option>`).join('')}
+          </select>
+        </div>
+        <div class="fg"><div class="fl fl-req">Emergency Justification</div><textarea class="ft" id="er-reason" placeholder="Why cannot this wait for the normal release process? What is the business / operational risk if not deployed immediately?"></textarea></div>
+        <div class="fg"><div class="fl">Brief Description</div><textarea class="ft" id="er-desc" placeholder="What is being changed?"></textarea></div>
+      </div>
+    </div>`;
+  } else if (erStep === 2) {
+    area.innerHTML = `
+    <div class="card" style="border-top:2px solid var(--danger);">
+      <div class="card-header"><span style="font-size:16px;">👤</span><span class="card-title" style="color:var(--danger);">Step 2 — Single Approver</span></div>
+      <div class="card-body">
+        <div style="background:var(--bg3);border:1px solid var(--border);padding:10px;margin-bottom:12px;border-radius:2px;"><div style="font-size:12px;color:var(--text2);">Emergency: <strong style="color:var(--text1);">${erData.reason?.slice(0,80)}…</strong></div></div>
+        <div class="fg"><div class="fl fl-req">Approving Authority (single approver for emergency)</div><input class="fi" id="er-approver" placeholder="e.g. L. Patterson (CTO) or M. Singh (Domain Lead)"></div>
+        <div style="padding:9px;background:var(--warn-dim);border:1px solid rgba(245,158,11,0.3);border-radius:2px;font-size:12px;color:var(--warn);">⚠ Post-deployment review is mandatory within 24 hours. A full OIRB retrospective must be completed within 72 hours.</div>
+      </div>
+    </div>`;
+  } else {
+    area.innerHTML = `
+    <div class="card" style="border-top:2px solid var(--danger);">
+      <div class="card-header"><span style="font-size:16px;">✓</span><span class="card-title" style="color:var(--danger);">Step 3 — Confirm & Submit</span></div>
+      <div class="card-body">
+        <div class="g2" style="margin-bottom:12px;">
+          ${[['CHG Number',erData.chg],['Domain',DM[erData.domain]?.l||'—'],['Approver',erData.approver],['Status','Auto-Approved (Emergency)']].map(([k,v])=>`<div style="background:var(--bg3);border:1px solid var(--border);padding:9px;border-radius:2px;"><div style="font-family:'IBM Plex Mono';font-size:8px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:2px;">${k}</div><div style="font-size:12px;font-weight:500;color:var(--text1);">${v}</div></div>`).join('')}
+        </div>
+        <div style="padding:10px;background:var(--danger-dim);border:1px solid rgba(239,68,68,0.3);border-radius:2px;font-size:12px;color:var(--danger);line-height:1.5;">🚨 This emergency release will be auto-approved, flagged in the audit log, and require post-deployment review within 24 hours and OIRB retrospective within 72 hours.</div>
+      </div>
+    </div>`;
+  }
+}
+
+// LOGIC1
 // ============================================================
 // GRIDFLOW LOGIC — gridflow_logic.js  (Part 1 of 2)
 // ============================================================
@@ -2241,8 +2828,7 @@ function doApprovalDecision() {
   toast(apAction === 'approved' ? '✓ Approval confirmed' : apAction === 'deferred' ? '⏸ Deferred — release returned to Draft' : '✗ Rejected — release returned to Draft for rework');
 }
 
-
-// ── LOGIC PART 2 ─────────────────────────────────
+// LOGIC2
 // ============================================================
 // GRIDFLOW LOGIC PART 2 — gridflow_logic2.js
 // Deployments, Rollbacks, CI Registry, Architecture Map,
@@ -2671,9 +3257,7 @@ function doReview() {
 function exportCI() {
   const headers = ['name', 'alias', 'domain', 'cat', 'type', 'vendor', 'product', 'version', 'host', 'env', 'os', 'db', 'loc', 'owner', 'crit', 'cycle', 'rev', 'comp', 'deps', 'notes'];
   const rows = CI.map(ci => headers.map(h => h === 'comp' ? (ci[h] || []).join('|') : (ci[h] || '')).map(v => '"' + String(v).replace(/"/g, '""') + '"').join(','));
-  const blob = new Blob([headers.join(',') + '
-' + rows.join('
-')], { type: 'text/csv' });
+  const blob = new Blob([headers.join(',') + '\n' + rows.join('\n')], { type: 'text/csv' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'gridflow-ci-export.csv'; a.click();
   toast('Exported ' + CI.length + ' CI records');
 }
@@ -3093,8 +3677,7 @@ function openOIRBOutcome(oirbId) {
   $('oirb-outcome-info').innerHTML = `<div style="font-size:13px;font-weight:500;color:var(--text1);margin-bottom:5px;">${b.release}</div><div style="display:flex;gap:7px;flex-wrap:wrap;">${r ? dBadge(r.domain) : ''} ${r ? riskBadge(r.risk) : ''}</div>`;
   ['oirb-oc-approved', 'oirb-oc-deferred', 'oirb-oc-rejected'].forEach(id => { const el = $(id); if (el) el.style.opacity = '0.5'; });
   const cab = $('oirb-oc-cab'); if (cab) cab.value = b.cabDecision || 'not_required';
-  const cond = $('oirb-oc-conditions'); if (cond) cond.value = b.conditions?.join('
-') || '';
+  const cond = $('oirb-oc-conditions'); if (cond) cond.value = b.conditions?.join('\n') || '';
   const notes = $('oirb-oc-notes'); if (notes) notes.value = '';
   const dd = $('oirb-oc-defer-wrap'); if (dd) dd.style.display = 'none';
   openMod('mod-oirb-outcome');
@@ -3111,8 +3694,7 @@ function saveOIRBOutcome() {
   const b = OIRB_MEETINGS.find(x => x.id === currentOIRBId); if (!b) return;
   const cab = $('oirb-oc-cab')?.value || 'not_required';
   const condText = $('oirb-oc-conditions')?.value || '';
-  const conditions = condText.split('
-').map(s => s.trim()).filter(Boolean);
+  const conditions = condText.split('\n').map(s => s.trim()).filter(Boolean);
   const notes = $('oirb-oc-notes')?.value || '';
   OIRB_MEETINGS = OIRB_MEETINGS.map(x => x.id === currentOIRBId ? { ...x, outcome: selectedOIRBOutcome, cabDecision: cab, conditions, notes } : x);
   const newStatus = selectedOIRBOutcome === 'approved' ? 'approved' : 'draft';
@@ -3386,18 +3968,15 @@ ${RELS.filter(r=>(r.cf||[]).includes('NERC CIP')).map(r=>`
   Planned Window: ${fmtD(r.plannedStart)}
   Compliance Flags: ${(r.cf||[]).join(', ')}
   Owner: ${r.owner}
-`).join('
-')}
+`).join('\n')}
 ${'='.repeat(60)}
 
 AUDIT TRAIL (last 20 entries):
-${AUDIT.slice(0,20).map(a=>`  [${new Date(a.ts).toLocaleString('en-GB')}] ${a.actor} — ${a.action} — ${a.entity} — Hash: ${a.hash||'sha:verified'}`).join('
-')}
+${AUDIT.slice(0,20).map(a=>`  [${new Date(a.ts).toLocaleString('en-GB')}] ${a.actor} — ${a.action} — ${a.entity} — Hash: ${a.hash||'sha:verified'}`).join('\n')}
 ${'='.repeat(60)}
 
 CI REGISTRY — NERC CIP Assets:
-${CI.filter(ci=>(ci.comp||[]).includes('NERC CIP')).map(ci=>`  ${ci.name} (${ci.alias||'—'}) — v${ci.version||'—'} — Last reviewed: ${ci.rev||'Never'} — ${rvStatus(ci).l}`).join('
-')}
+${CI.filter(ci=>(ci.comp||[]).includes('NERC CIP')).map(ci=>`  ${ci.name} (${ci.alias||'—'}) — v${ci.version||'—'} — Last reviewed: ${ci.rev||'Never'} — ${rvStatus(ci).l}`).join('\n')}
 ${'='.repeat(60)}
 
 This package contains ${AUDIT.length} audit log entries, ${CI.filter(ci=>(ci.comp||[]).includes('NERC CIP')).length} NERC CIP assets, and ${RELS.filter(r=>(r.cf||[]).includes('NERC CIP')).length} flagged releases.
@@ -3512,9 +4091,7 @@ function renderAudit() {
 function exportAuditLog() {
   const headers = ['timestamp', 'actor', 'action', 'entity', 'domain', 'detail', 'hash'];
   const rows = AUDIT.map(a => headers.map(h => { const v = h === 'timestamp' ? new Date(a.ts).toISOString() : a[h] || ''; return '"' + String(v).replace(/"/g, '""') + '"'; }).join(','));
-  const blob = new Blob([headers.join(',') + '
-' + rows.join('
-')], { type: 'text/csv' });
+  const blob = new Blob([headers.join(',') + '\n' + rows.join('\n')], { type: 'text/csv' });
   const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `gridflow-audit-${new Date().toISOString().slice(0,10)}.csv`; link.click();
   toast('✓ Audit log exported — ' + AUDIT.length + ' records');
 }
@@ -3611,47 +4188,13 @@ function openCommTemplates(rId) {
     <div class="mb">
       <div style="font-size:12px;color:var(--text2);margin-bottom:14px;">Auto-generated for: <strong style="color:var(--text1);">${r.title}</strong> — Click any template to copy.</div>
       ${[
-        ['Ops Team — Technical Notification', `RELEASE NOTIFICATION — ${r.title}
-
-CHG: ${r.chg}
-Domain: ${dm.l}
-Planned Window: ${fmtD(r.plannedStart)}
-Version: ${r.vf} → ${r.vt}
-Risk Level: ${r.rl}
-
-Summary: ${r.desc || 'No description provided.'}
-
-Rollback Plan: ${r.rollbackPlan || 'See release record.'}
-Contact: ${r.owner}`],
-        ['Leadership — Executive Summary', `CHANGE ADVISORY — ${dm.l} Domain
-
-Release: ${r.title}
-Status: Approved for deployment
-Planned Date: ${fmtD(r.plannedStart)}
-Risk Assessment: ${r.rl} (${r.risk}/100)
-
-Business Impact: ${(r.di||[]).length} direct system dependencies identified.
-Compliance: ${(r.cf||[]).join(', ') || 'No flags'}
-OIRB Status: ${r.oirbStatus || 'Approved'}
-
-For questions contact: D. Brown (Release Manager)`],
-        ['Customer Notification', `SERVICE ADVISORY
-
-Dear Customer,
-
-We are conducting planned maintenance on our ${dm.l} systems on ${fmtD(r.plannedStart)}.
-
-You may experience brief interruptions to ${dm.l === 'Customer Care' ? 'online account access and contact center services' : dm.l === 'Billing' ? 'billing portal and payment processing' : 'services dependent on our ' + dm.l + ' systems'}.
-
-Expected duration: 2–4 hours.
-
-We apologize for any inconvenience. For assistance call 1-800-UTILITY.
-
-Thank you for your patience.`]
+        ['Ops Team — Technical Notification', `RELEASE NOTIFICATION — ${r.title}\n\nCHG: ${r.chg}\nDomain: ${dm.l}\nPlanned Window: ${fmtD(r.plannedStart)}\nVersion: ${r.vf} → ${r.vt}\nRisk Level: ${r.rl}\n\nSummary: ${r.desc || 'No description provided.'}\n\nRollback Plan: ${r.rollbackPlan || 'See release record.'}\nContact: ${r.owner}`],
+        ['Leadership — Executive Summary', `CHANGE ADVISORY — ${dm.l} Domain\n\nRelease: ${r.title}\nStatus: Approved for deployment\nPlanned Date: ${fmtD(r.plannedStart)}\nRisk Assessment: ${r.rl} (${r.risk}/100)\n\nBusiness Impact: ${(r.di||[]).length} direct system dependencies identified.\nCompliance: ${(r.cf||[]).join(', ') || 'No flags'}\nOIRB Status: ${r.oirbStatus || 'Approved'}\n\nFor questions contact: D. Brown (Release Manager)`],
+        ['Customer Notification', `SERVICE ADVISORY\n\nDear Customer,\n\nWe are conducting planned maintenance on our ${dm.l} systems on ${fmtD(r.plannedStart)}.\n\nYou may experience brief interruptions to ${dm.l === 'Customer Care' ? 'online account access and contact center services' : dm.l === 'Billing' ? 'billing portal and payment processing' : 'services dependent on our ' + dm.l + ' systems'}.\n\nExpected duration: 2–4 hours.\n\nWe apologize for any inconvenience. For assistance call 1-800-UTILITY.\n\nThank you for your patience.`]
       ].map(([title, text]) => `<div style="margin-bottom:12px;">
         <div style="font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text1);margin-bottom:6px;">${title}</div>
         <div style="background:var(--bg3);border:1px solid var(--border);padding:10px;border-radius:2px;font-family:'IBM Plex Mono';font-size:10px;color:var(--text2);white-space:pre-line;line-height:1.6;max-height:120px;overflow-y:auto;">${text}</div>
-        <button class="btn btn-outline btn-sm" style="margin-top:5px;" onclick="navigator.clipboard.writeText(\`${text.replace(/`/g, '\`')}\`);toast('✓ Copied to clipboard');">Copy Template</button>
+        <button class="btn btn-outline btn-sm" style="margin-top:5px;" onclick="navigator.clipboard.writeText(\`${text.replace(/`/g, '\\`')}\`);toast('✓ Copied to clipboard');">Copy Template</button>
       </div>`).join('')}
     </div>
     <div class="mf"><button class="btn btn-outline" onclick="closeMod('mod-comms')">Close</button></div>`;
