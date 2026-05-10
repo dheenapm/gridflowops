@@ -810,7 +810,8 @@ tbody td{padding:8px 12px;font-size:12px;color:var(--text2);vertical-align:middl
 
 <!-- Load JS files in order -->
 <script>
-// DATA
+
+// ── DATA ─────────────────────────────────────────────────────
 // ============================================================
 // GRIDFLOW DATA — gridflow_data.js
 // Place this file in the same folder as gridflow.html
@@ -1357,7 +1358,8 @@ let NOTIFS = [
   { id: 'n005', type: 'conflict', msg: 'Advisory conflict detected — 2 Distribution releases overlap May 15', ts: new Date(Date.now() - 14400000).toISOString(), read: true }
 ];
 
-// GLUE
+
+// ── GLUE (missing functions + wizard) ───────────────────────
 // ============================================================
 // GRIDFLOW — GLUE FILE (gridflow_glue.js)
 // All missing functions connecting logic1 and logic2
@@ -1962,7 +1964,19 @@ function renderERStep() {
   }
 }
 
-// LOGIC1
+// ── nrReset ──────────────────────────────────────────────────
+function nrReset() {
+  nrStep = 1; nrD = ''; nrState = {}; nrImpacts = []; nrRisk = 0;
+}
+
+// ── generateCommsTemplate alias ──────────────────────────────
+function generateCommsTemplate(rId) {
+  openCommTemplates(rId);
+}
+
+
+
+// ── LOGIC 1 (nav, dashboard, releases, approvals) ───────────
 // ============================================================
 // GRIDFLOW LOGIC — gridflow_logic.js  (Part 1 of 2)
 // ============================================================
@@ -2712,7 +2726,6 @@ function printRelease() {
 }
 
 // ── Approvals ────────────────────────────────────────────────
-let apId = null, apAction = null;
 
 function renderApprovals() {
   const pend = APS.filter(a => a.status === 'pending');
@@ -2783,31 +2796,6 @@ function bulkApprove() {
   renderApprovals(); updateNotifBadge();
 }
 
-function openApModal(id, action) {
-  apId = id; apAction = action;
-  const a = APS.find(x => x.id === id);
-  const r = RELS.find(x => x.id === a?.rId);
-  $('apc-icon').textContent = action === 'approved' ? '✅' : action === 'deferred' ? '⏸' : '❌';
-  $('apc-title').textContent = action === 'approved' ? 'Confirm Approval' : action === 'deferred' ? 'Confirm Deferral' : 'Confirm Rejection';
-  $('apc-release-info').innerHTML = r ? `
-    <div style="font-size:13px;font-weight:500;color:var(--text1);margin-bottom:5px;">${r.title}</div>
-    <div style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);">${r.chg} · ${a.approver} — ${a.role}</div>
-    <div style="display:flex;gap:7px;margin-top:5px;">${dBadge(r.domain)} ${riskBadge(r.risk)}</div>
-    ${action !== 'approved' ? `<div style="margin-top:7px;padding:7px;background:var(--warn-dim);border-left:3px solid var(--warn);font-size:11px;color:var(--warn);">⚠ ${action === 'deferred' ? 'Release will return to Draft for rescheduling.' : 'Release will be rejected and returned to Draft for rework.'}</div>` : ''}` : '';
-  $('apc-comment').value = '';
-  const btn = $('apc-confirm-btn');
-  btn.className = `btn ${action === 'approved' ? 'btn-success' : action === 'deferred' ? 'btn-warn' : 'btn-danger'}`;
-  btn.textContent = action === 'approved' ? '✓ Confirm Approval' : action === 'deferred' ? '⏸ Confirm Deferral' : '✗ Confirm Rejection';
-  openMod('mod-ap-confirm');
-}
-
-function openApReview(rId) {
-  const r = RELS.find(x => x.id === rId); if (!r) return;
-  $('ap-modal-body').innerHTML = `<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Full release record for approval decision.</div>`;
-  openMod('mod-ap');
-  setTimeout(() => { closeMod('mod-ap'); openRD(rId); }, 100);
-}
-
 function doApprovalDecision() {
   const comment = $('apc-comment').value.trim();
   if (!comment) { toast('Comment is required for all approval decisions', 'error'); return; }
@@ -2828,7 +2816,8 @@ function doApprovalDecision() {
   toast(apAction === 'approved' ? '✓ Approval confirmed' : apAction === 'deferred' ? '⏸ Deferred — release returned to Draft' : '✗ Rejected — release returned to Draft for rework');
 }
 
-// LOGIC2
+
+// ── LOGIC 2 (deploy, CI, arch, pages, calendar, governance) ─
 // ============================================================
 // GRIDFLOW LOGIC PART 2 — gridflow_logic2.js
 // Deployments, Rollbacks, CI Registry, Architecture Map,
@@ -3494,14 +3483,6 @@ function renderDomain(d) {
 
 // ── CALENDAR ─────────────────────────────────────────────────
 let calView = 'month', calDate = new Date(), calPopupTimer = null;
-const calFmtMonth = d => d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-const calFmtWeek = d => { const s = calWeekStart(d); const e = new Date(s); e.setDate(e.getDate() + 6); return s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' — ' + e.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); };
-const calWeekStart = d => { const s = new Date(d); s.setDate(s.getDate() - s.getDay()); s.setHours(0, 0, 0, 0); return s; };
-const isSameDay = (a, b) => { const da = new Date(a), db = new Date(b); return da.getFullYear() === db.getFullYear() && da.getMonth() === db.getMonth() && da.getDate() === db.getDate(); };
-const isToday = d => isSameDay(d, new Date());
-const calDateKey = d => { const dt = new Date(d); return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`; };
-const calStatusBg = s => ({ draft:'rgba(100,116,139,0.12)', submitted:'rgba(56,189,248,0.12)', risk_assessment:'rgba(167,139,250,0.12)', oirb_review:'rgba(245,158,11,0.15)', approved:'rgba(34,197,94,0.12)', scheduled:'rgba(0,229,176,0.12)', implementation:'rgba(245,158,11,0.18)', completed:'rgba(34,197,94,0.15)', closed:'rgba(100,116,139,0.12)', deferred:'rgba(167,139,250,0.12)', rejected:'rgba(239,68,68,0.12)', rolled_back:'rgba(239,68,68,0.15)', cancelled:'rgba(100,116,139,0.10)' }[s] || 'rgba(100,116,139,0.10)');
-const isFreezDay = d => new Date(d).getDay() === 6;
 
 function setCalView(v) {
   calView = v;
@@ -4097,38 +4078,8 @@ function exportAuditLog() {
 }
 
 // ── GLOBAL SEARCH ────────────────────────────────────────────
-function openGSearch() {
-  $('gsearch-overlay').classList.add('open');
-  setTimeout(() => { const el = $('gsearch-input'); if (el) { el.value = ''; el.focus(); } }, 50);
-  $('gsearch-results').innerHTML = '';
-}
-function closeGSearch() { $('gsearch-overlay').classList.remove('open'); }
-function doGSearch(q) {
-  if (!q || q.length < 2) { $('gsearch-results').innerHTML = ''; return; }
-  const lq = q.toLowerCase();
-  const results = [
-    ...RELS.filter(r => [r.title, r.chg, r.app, r.owner].join(' ').toLowerCase().includes(lq)).slice(0, 4).map(r => ({ type: 'Release', icon: '📋', label: r.title, sub: `${r.chg} · ${DM[r.domain]?.l} · ${r.status}`, action: () => { closeGSearch(); openRD(r.id); } })),
-    ...CI.filter(ci => [ci.name, ci.alias, ci.vendor, ci.host].join(' ').toLowerCase().includes(lq)).slice(0, 3).map(ci => ({ type: 'CI', icon: '🗄️', label: ci.name, sub: `${ci.vendor} · ${DM[ci.domain]?.l} · ${ci.version}`, action: () => { closeGSearch(); openCIDetail(ci.id); } })),
-    ...CHANGE_REQUESTS.filter(cr => [cr.crNumber, cr.release].join(' ').toLowerCase().includes(lq)).slice(0, 2).map(cr => ({ type: 'CR', icon: '📄', label: cr.crNumber, sub: cr.release + ' · ' + cr.outcome, action: () => { closeGSearch(); nav('change-requests', null); } })),
-    ...AUDIT.filter(a => [a.actor, a.action, a.entity, a.detail].join(' ').toLowerCase().includes(lq)).slice(0, 2).map(a => ({ type: 'Audit', icon: '📝', label: a.action, sub: a.entity + ' · ' + new Date(a.ts).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }), action: () => { closeGSearch(); nav('audit', null); } }))
-  ];
-  $('gsearch-results').innerHTML = results.length === 0
-    ? '<div style="padding:20px;text-align:center;font-family:\'IBM Plex Mono\';font-size:11px;color:var(--text3);">No results found</div>'
-    : results.map((r, i) => `<div class="gsearch-result" onclick="gsResults[${i}].action()">
-        <div style="display:flex;align-items:center;gap:9px;">
-          <span style="font-size:14px;">${r.icon}</span>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;font-weight:500;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.label}</div>
-            <div style="font-family:'IBM Plex Mono';font-size:9px;color:var(--text3);">${r.sub}</div>
-          </div>
-          <span style="font-family:'IBM Plex Mono';font-size:8px;padding:1px 6px;background:var(--bg3);border:1px solid var(--border);border-radius:2px;color:var(--text3);">${r.type}</span>
-        </div>
-      </div>`).join('');
-  window.gsResults = results;
-}
 
 // ── SHORTCUTS ────────────────────────────────────────────────
-function toggleShortcuts() { const p = $('shortcuts-panel'); if (p) p.classList.toggle('open'); }
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open')); closeGSearch(); closeCalPopup(); if ($('shortcuts-panel')) $('shortcuts-panel').classList.remove('open'); }
   if ((e.ctrlKey || e.metaKey) && e.key === 'n') { e.preventDefault(); nav('new-release', null); }
@@ -4139,15 +4090,6 @@ document.addEventListener('keydown', e => {
 document.querySelectorAll('.modal-overlay').forEach(overlay => { overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); }); });
 
 // ── NOTIFICATIONS ────────────────────────────────────────────
-function toggleNotif() {
-  const drop = $('notif-drop');
-  if (!drop) return;
-  if (drop.style.display === 'none' || !drop.style.display) {
-    renderNotifDrop(); drop.style.display = 'block';
-    NOTIFS.forEach(n => n.read = true); updateNotifBadge();
-    setTimeout(() => document.addEventListener('click', closeNotifOnce), 100);
-  } else { drop.style.display = 'none'; }
-}
 function closeNotifOnce(e) { if (!$('notif-drop')?.contains(e.target) && !$('notif-btn')?.contains(e.target)) { const d = $('notif-drop'); if (d) d.style.display = 'none'; } document.removeEventListener('click', closeNotifOnce); }
 function renderNotifDrop() {
   const drop = $('notif-drop');
@@ -4161,7 +4103,6 @@ function renderNotifDrop() {
       </div>
     </div>`).join('')}`;
 }
-function updateNotifBadge() { const c = $('notif-count'); if (c) c.textContent = NOTIFS.filter(n => !n.read).length; }
 
 // ── STRESS INDICATOR ─────────────────────────────────────────
 const STRESS_LEVELS = [
@@ -4169,14 +4110,6 @@ const STRESS_LEVELS = [
   { l: 'Grid Elevated', c: 'var(--warn)', d: 'High demand period — defer non-critical releases, Distribution releases suspended' },
   { l: 'Grid High Stress', c: 'var(--danger)', d: '⚠️ Peak demand active — OMS and SCADA releases frozen — emergency only' }
 ];
-let stressIdx = 0;
-function updateStress() {
-  const s = STRESS_LEVELS[stressIdx];
-  const lbl = $('stress-label'); if (lbl) { lbl.textContent = s.l; lbl.style.color = s.c; }
-  const dot = $('topbar-stress')?.querySelector('.sdot'); if (dot) { dot.style.background = s.c; dot.style.boxShadow = `0 0 4px ${s.c}`; }
-  const banner = $('dash-stress-banner');
-  if (banner) banner.innerHTML = stressIdx > 0 ? `<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:2px;margin-bottom:0;background:${stressIdx===2?'var(--danger-dim)':'var(--warn-dim)'};border:1px solid ${stressIdx===2?'rgba(239,68,68,0.3)':'rgba(245,158,11,0.3)'};border-left:3px solid ${s.c};"><div class="sdot" style="background:${s.c};box-shadow:0 0 6px ${s.c};animation:pulse-dot 1s infinite;"></div><span style="font-size:12px;color:${s.c};font-weight:500;">${s.d}</span><button class="btn btn-outline btn-sm" style="margin-left:auto;" onclick="stressIdx=0;updateStress()">Clear Advisory</button></div>` : '';
-}
 setTimeout(() => { stressIdx = 1; updateStress(); }, 15000);
 
 // ── COMMUNICATION TEMPLATES ──────────────────────────────────
@@ -4214,6 +4147,7 @@ function openCommTemplates(rId) {
   console.log('%cGridFlow v2.0 — Utility Release Intelligence Platform', 'color:#00e5b0;font-family:monospace;font-size:14px;font-weight:bold;');
   console.log('%cCIO-Ready Demo Build | ' + CI.length + ' CIs | ' + RELS.length + ' Releases | ' + AUDIT.length + ' Audit entries', 'color:#7eada5;font-family:monospace;font-size:11px;');
 })();
+
 
 </script>
 </body>
